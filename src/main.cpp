@@ -150,7 +150,7 @@ void executeCommand(const Command command) {
 }
 
 void usage() {
-	
+	printf("usage: todo <command> [options]\n");
 }
 
 int main(int argc, char** argv) {
