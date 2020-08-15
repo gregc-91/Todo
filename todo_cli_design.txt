@@ -1,0 +1,75 @@
+
+Introduction
+
+Todo aims to be an extension to the usual text based todo list. Enabling viewing, organising, sorting and editing of text based todo files through a command line interface.
+
+It should be
+- Robust
+- Simple
+- Clean
+
+Commands
+
+todo <command>
+	list 
+		[#Project] [@Tag] [#] [@]
+		lists all the tasks
+			in a file
+			in a project
+			with tag
+			with status
+		list all the projects
+			in a file
+			with tag
+			with status
+		list all the tags
+			in a file
+			in a project
+			with status
+	add
+		[#Project] [@tag] "Task"
+	do 
+		[#Project] <line>
+	tidy
+		Formats the todo.txt file
+			- Removes excess lines
+			- Fixes indentation and whitespace
+			- Checks for syntax errors
+			- Moves done and suspended tasks to done.txt
+	
+//todo: how to do hierarchical adding of notes?
+
+Project Architecture
+
+/src/
+  |
+  +->main.cpp
+  +->parser.cpp
+  +->fileio.cpp
+  +->command.cpp
+  +->history.cpp
+
+Example file
+
+# Project 1
+[-] This is an active task with no priority
+  [-] This is a subtask
+[!] This is an urgent task
+[^] This is a high priority task
+[v] This is a low priority task
+[x] This is a completed priority task
+  [x] This is a completed subtask
+[~] This is a suspended task
+      This is a note
+[.] This is a terminated task 
+
+# Project 2
+[-] 15-3-20 This is an active task with a due date
+[-] 15-3-20 11-3-20 This is an active task with a due date and start date
+
+# Project 3
+[-] This is an active task with a tag @tag
+
+
+
+
