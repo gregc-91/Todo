@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdint.h>
 #include <string.h>
 #include <strings.h>
@@ -77,8 +78,31 @@ struct Command {
 		}		
 	}
 	
-	Command operator=(const Command& other) {
-		return Command(other);
+	Command& operator=(const Command& other) {
+		assert(ct == CommandType::None);
+		ct = other.type();
+		switch (ct) {
+		case CommandType::List: 
+			new (&list.project) std::string(other.list.project);
+			new (&list.tag)     std::string(other.list.tag);
+			break;
+		case CommandType::Add:
+			new (&add.project) std::string(other.add.project);
+			new (&add.tag)     std::string(other.add.tag);
+			new (&add.task)    std::string(other.add.task);
+			break;
+		case CommandType::Remove:
+			new (&remove.project) std::string(other.remove.project);
+			new (&remove.tag)     std::string(other.remove.tag);
+			break;
+		case CommandType::Doo:
+			new (&doo.project) std::string(other.doo.project);
+			new (&doo.tag)     std::string(other.doo.tag);
+			break;
+		default: break;
+		}
+		
+		return *this;
 	}
 	
 	~Command() {
@@ -152,8 +176,6 @@ private:
 };
 
 Command parseCommandType(char* str) {
-	
-	printf("%s %s\n", str, CommandStrings[CommandType::Add]);
 	
 	if (!strcasecmp(str, CommandStrings[CommandType::List]))   return Command(CommandType::List);
 	if (!strcasecmp(str, CommandStrings[CommandType::Add]))    return Command(CommandType::Add);
