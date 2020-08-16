@@ -12,7 +12,7 @@ Commands
 
 todo <command>
 	list 
-		[#Project] [@Tag] [#] [@]
+		[#Project] [@Tag] [[*]] [#] [@]
 		lists all the tasks
 			in a file
 			in a project
@@ -27,9 +27,14 @@ todo <command>
 			in a project
 			with status
 	add
-		[#Project] [@tag] "Task"
+		[#Project] [@Tag] "Task"
+	remove
+		[#Project] [@Tag] <index>
 	do 
-		[#Project] <line>
+		[#Project] [@Tag] <index>
+		
+	undo
+		Undoes the last action
 	tidy
 		Formats the todo.txt file
 			- Removes excess lines
@@ -40,6 +45,11 @@ todo <command>
 //todo: how to do hierarchical adding of notes?
 
 Project Architecture
+
+The project should use a command based architecture.
+Command line arguments should be parsed into a command object.
+Command objects are executed to perform the desired action.
+A history should be kept to facilitate undo of the last N actions.
 
 /src/
   |
