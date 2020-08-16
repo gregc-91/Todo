@@ -1,6 +1,7 @@
 
-#include <cstdint>
-#include <cstring>
+#include <stdint.h>
+#include <string.h>
+#include <strings.h>
 #include <ctime>
 #include <iostream>
 #include <string>
@@ -154,11 +155,11 @@ Command parseCommandType(char* str) {
 	
 	printf("%s %s\n", str, CommandStrings[CommandType::Add]);
 	
-	if (!strcmp(str, CommandStrings[CommandType::List]))   return Command(CommandType::List);
-	if (!strcmp(str, CommandStrings[CommandType::Add]))    return Command(CommandType::Add);
-	if (!strcmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
-	if (!strcmp(str, CommandStrings[CommandType::Doo]))    return Command(CommandType::Doo);
-	if (!strcmp(str, CommandStrings[CommandType::Tidy]))   return Command(CommandType::Tidy);
+	if (!strcasecmp(str, CommandStrings[CommandType::List]))   return Command(CommandType::List);
+	if (!strcasecmp(str, CommandStrings[CommandType::Add]))    return Command(CommandType::Add);
+	if (!strcasecmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
+	if (!strcasecmp(str, CommandStrings[CommandType::Doo]))    return Command(CommandType::Doo);
+	if (!strcasecmp(str, CommandStrings[CommandType::Tidy]))   return Command(CommandType::Tidy);
 
 	throw std::invalid_argument("Invalid command type!");
 }
