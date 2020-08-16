@@ -172,25 +172,25 @@ Command parseCommand(int argc, char** argv) {
 	return command;
 }
 
-void executeListCommand(const Command command) {
+void executeListCommand(const Command /*command*/) {
 	printf("Executing list command.\n");
-};
+}
 
-void executeAddCommand(const Command command) {
+void executeAddCommand(const Command /*command*/) {
 	printf("Executing add command.\n");
-};
+}
 
-void executeRemoveCommand(const Command command) {
+void executeRemoveCommand(const Command /*command*/) {
 	printf("Executing remove command.\n");
-};
+}
 
-void executeDooCommand(const Command command) {
+void executeDooCommand(const Command /*command*/) {
 	printf("Executing do command.\n");
-};
+}
 
-void executeTidyCommand(const Command command) {
+void executeTidyCommand(const Command /*command*/) {
 	printf("Executing tidy command.\n");
-};
+}
 
 void executeCommand(const Command command) {
 	
@@ -215,6 +215,7 @@ void executeCommand(const Command command) {
 		{
 			executeTidyCommand(command);
 		} break;
+	default: break;
 	}
 }
 
