@@ -1,4 +1,7 @@
 
+#include <cstdint>
+#include <cstring>
+#include <ctime>
 #include <iostream>
 #include <string>
 
@@ -8,22 +11,68 @@ enum CommandType {
 	Remove,
 	Doo,
 	Tidy,
-	None
+	None,
+	CommandTypeSize
+};
+
+const char* CommandStrings[CommandType::CommandTypeSize] = {
+	"List",
+	"Add",
+	"Remove",
+	"Do",
+	"Tidy",
+	"None"
 };
 
 struct Command {
 	Command() : ct(CommandType::None) {
 	}
 	
-	Command(const Command& other) {
-		ct = other.ct;
+	Command(CommandType commandType) {
+		ct = commandType;
 		switch (ct) {
-		case CommandType::List:   list   = other.list;   break;
-		case CommandType::Add:    add    = other.add;    break;
-		case CommandType::Remove: remove = other.remove; break;
-		case CommandType::Doo:    doo    = other.doo;    break;
-		case CommandType::Tidy:   tidy   = other.tidy;   break;
-		case CommandType::None:   none   = other.none;   break;
+		case CommandType::List: 
+			new (&list.project) std::string();
+			new (&list.tag)     std::string();
+			break;
+		case CommandType::Add:
+			new (&add.project) std::string();
+			new (&add.tag)     std::string();
+			new (&add.task)    std::string();
+			break;
+		case CommandType::Remove:
+			new (&remove.project) std::string();
+			new (&remove.tag)     std::string();
+			break;
+		case CommandType::Doo:
+			new (&doo.project) std::string();
+			new (&doo.tag)     std::string();
+			break;
+		default: break;
+		}		
+	}
+	
+	Command(const Command& other) {
+		ct = other.type();
+		switch (ct) {
+		case CommandType::List: 
+			new (&list.project) std::string(other.list.project);
+			new (&list.tag)     std::string(other.list.tag);
+			break;
+		case CommandType::Add:
+			new (&add.project) std::string(other.add.project);
+			new (&add.tag)     std::string(other.add.tag);
+			new (&add.task)    std::string(other.add.task);
+			break;
+		case CommandType::Remove:
+			new (&remove.project) std::string(other.remove.project);
+			new (&remove.tag)     std::string(other.remove.tag);
+			break;
+		case CommandType::Doo:
+			new (&doo.project) std::string(other.doo.project);
+			new (&doo.tag)     std::string(other.doo.tag);
+			break;
+		default: break;
 		}		
 	}
 	
@@ -45,19 +94,19 @@ struct Command {
 			add.task.~string();
 			break;
 		case CommandType::Remove:
-			list.project.~string();
-			list.tag.~string();
+			remove.project.~string();
+			remove.tag.~string();
 			break;
 		case CommandType::Doo:
-			list.project.~string();
-			list.tag.~string();
+			doo.project.~string();
+			doo.tag.~string();
 			break;
 		default:
 			break;
 		}
 	}
 	
-	CommandType ct;
+	CommandType type() const { return ct; }
 	
 	union {
 		struct {
@@ -96,10 +145,29 @@ struct Command {
 			uint32_t placeholder;
 		} none;
 	};
+	
+private:
+	CommandType ct;
 };
 
+Command parseCommandType(char* str) {
+	
+	printf("%s %s\n", str, CommandStrings[CommandType::Add]);
+	
+	if (!strcmp(str, CommandStrings[CommandType::List]))   return Command(CommandType::List);
+	if (!strcmp(str, CommandStrings[CommandType::Add]))    return Command(CommandType::Add);
+	if (!strcmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
+	if (!strcmp(str, CommandStrings[CommandType::Doo]))    return Command(CommandType::Doo);
+	if (!strcmp(str, CommandStrings[CommandType::Tidy]))   return Command(CommandType::Tidy);
+
+	throw std::invalid_argument("Invalid command type!");
+}
+
 Command parseCommand(int argc, char** argv) {
-	Command command;
+	if (argc < 2)  throw std::invalid_argument("Not enough arguments!");
+	
+	Command command = parseCommandType(argv[1]);
+
 	return command;
 }
 
@@ -125,7 +193,7 @@ void executeTidyCommand(const Command command) {
 
 void executeCommand(const Command command) {
 	
-	switch (command.ct) {
+	switch (command.type()) {
 	case CommandType::List:
 		{
 			executeListCommand(command);
@@ -160,7 +228,7 @@ int main(int argc, char** argv) {
 	try {
 		command = parseCommand(argc, argv);
 	} catch(std::invalid_argument &e) {
-		std::cout << e.what() << std::endl;
+		std::cout << "Parse error: " << e.what() << std::endl;
 		exit(-1);
 	}
 	
@@ -168,7 +236,7 @@ int main(int argc, char** argv) {
 		executeCommand(command);
 	} catch(...) {
 		//Todo: handle execution execeptions
-		std::cout << "Error" << std::endl;
+		std::cout << "Execution error" << std::endl;
 		exit(-1);
 	}
 	
