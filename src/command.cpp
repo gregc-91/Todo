@@ -1,6 +1,7 @@
 
 #include "command.h"
 
+#include <strings.h>
 #include <fstream>
 #include <iostream>
 #include <iomanip>
@@ -26,18 +27,35 @@ const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"None"
 };
 
-static void executeListCommand(const Command /*command*/) {
+const std::string whitespace = " \t\f\v\n\r";
+
+std::string trimLeadingWhitespace(const std::string &str) {
+	size_t start = str.find_first_not_of(whitespace);
+	return start == std::string::npos ? "" : str.substr(start);
+}
+
+static void executeListCommand(const Command command) {
 	printf("Executing list command.\n");
-	
-	const std::string whitespace = " \t\f\v\n\r";
-	
+
 	std::ifstream file("todo.txt");
+	
+	bool filterProject = true;
 
 	unsigned lineNo = 0;
+	std::string projectName = "";
 	for(std::string line; getline(file, line); lineNo++) {
 
-		int start = line.find_first_not_of(whitespace);
-		bool isProject = line[start] == '#';
+		line = trimLeadingWhitespace(line);
+		bool isProject = line.front() == '#';
+		
+		if (isProject) {
+			std::stringstream lineStream(trimLeadingWhitespace(line.substr(1))); 
+			std::getline(lineStream, projectName, ' ');
+		}
+		
+		if (filterProject && strcasecmp(command.list.project.c_str(), projectName.c_str())) {
+			continue;
+		}
 		
 		 std::cout << Colour::Black << std::setw(4) << lineNo << ":  " << Colour::Reset;
 		

@@ -75,6 +75,10 @@ Command parseCommand(int argc, char** argv) {
 	if (argc < 2)  throw std::invalid_argument("Not enough arguments!");
 	
 	Command command = parseCommandType(argv[1]);
+	
+	if (argc > 2 && command.type() == CommandType::List) {
+		command.list.project = std::string(argv[2]);
+	}
 
 	return command;
 }
