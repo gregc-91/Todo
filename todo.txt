@@ -1,0 +1,18 @@
+# Project1
+[-] This is an active task with no priority
+  [-] This is a subtask
+[!] This is an urgent task
+[^] This is a high priority task
+[v] This is a low priority task
+[x] This is a completed priority task
+  [x] This is a completed subtask
+[~] This is a suspended task
+      This is a note
+[.] This is a terminated task 
+
+# Project2
+[-] 15-3-20 This is an active task with a due date
+[-] 15-3-20 11-3-20 This is an active task with a due date and start date
+
+# Project3
+[-] This is an active task with a tag @tag
