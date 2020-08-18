@@ -6,18 +6,6 @@
 #include <iostream>
 #include <iomanip>
 
-namespace Colour {
-	static const char* Black  = "\u001b[30;1m";
-	static const char* Red    = "\u001b[31;1m";
-	static const char* Green  = "\u001b[32;1m";
-	static const char* Yellow = "\u001b[33;1m";
-	static const char* Blue   = "\u001b[34;1m";
-	static const char* Pink   = "\u001b[35;1m";
-	static const char* Cyan   = "\u001b[36;1m";
-	static const char* White  = "\u001b[37;1m";
-	static const char* Reset  = "\u001b[0m";
-}
-
 const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"List",
 	"Add",
@@ -27,6 +15,16 @@ const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"None"
 };
 
+const char* TaskColours[TaskType::TaskTypeSize] = {
+	Colour::White,
+	Colour::BrightRed,
+	Colour::Orange,
+	Colour::BrightYellow,
+	Colour::BrightGreen,
+	Colour::Cyan,
+	Colour::BrightBlack,
+};
+
 const std::string whitespace = " \t\f\v\n\r";
 
 std::string trimLeadingWhitespace(const std::string &str) {
@@ -34,12 +32,31 @@ std::string trimLeadingWhitespace(const std::string &str) {
 	return start == std::string::npos ? "" : str.substr(start);
 }
 
+TaskType parseTaskType(std::string &line) {
+	assert(line.size() >= 3);
+	assert(line[0] == '[');
+	assert(line[2] == ']');
+	assert(line[3] == ' ');
+	
+	switch (line[1]) {
+	case '-': return TaskType::Normal;
+	case '!': return TaskType::Urgent;
+	case '^': return TaskType::HighPriority;
+	case 'v': return TaskType::LowPriority;
+	case 'x': return TaskType::Completed;
+	case '~': return TaskType::Suspended;
+	case '.': return TaskType::Terminated;
+	default:
+		throw "Found invalid task status";
+	}
+}
+
 static void executeListCommand(const Command command) {
 	printf("Executing list command.\n");
 
 	std::ifstream file("todo.txt");
 	
-	bool filterProject = true;
+	bool filterProject = false;
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -47,6 +64,7 @@ static void executeListCommand(const Command command) {
 
 		line = trimLeadingWhitespace(line);
 		bool isProject = line.front() == '#';
+		bool isTask    = line.front() == '[';
 		
 		if (isProject) {
 			std::stringstream lineStream(trimLeadingWhitespace(line.substr(1))); 
@@ -57,10 +75,16 @@ static void executeListCommand(const Command command) {
 			continue;
 		}
 		
-		 std::cout << Colour::Black << std::setw(4) << lineNo << ":  " << Colour::Reset;
+		std::cout << Colour::BrightBlack << std::setw(4) << lineNo << ":  " << Colour::Reset;
 		
 		if (isProject) {
-			std::cout << Colour::White;
+			std::cout << Colour::BrightWhite;
+		} else if (isTask) {
+			TaskType taskType = parseTaskType(line);
+			
+			std::cout << TaskColours[taskType];
+			
+			//line = line.subtr(3);
 		}
 		
 		std::cout << line << std::endl;
