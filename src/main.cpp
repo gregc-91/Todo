@@ -71,13 +71,41 @@ Command parseCommandType(char* str) {
 	throw std::invalid_argument("Invalid command type!");
 }
 
+void parseListCommand(int argc, char** argv, Command &command) {
+	
+	for (unsigned i = 0; i < argc; i++) {
+		
+		switch (argv[i][0]) {
+		
+		case '#':
+			if (argv[i][1] != '\0') {
+				if (command.list.project != "") throw "Duplicate project name";
+				command.list.project = std::string(argv[i]+1);
+			} else {
+				command.list.mode = ListMode::Projects;
+			}
+			
+			break;
+		case '@':
+			if (argv[i][1] != '\0') {
+				if (command.list.tag != "") throw "Duplicate tag";
+				command.list.tag = std::string(argv[i]+1);
+			} else {
+				command.list.mode = ListMode::Tags;
+			}
+		default:
+			throw "Unknown list subcommand";
+		}
+	}
+}
+
 Command parseCommand(int argc, char** argv) {
 	if (argc < 2)  throw std::invalid_argument("Not enough arguments!");
 	
 	Command command = parseCommandType(argv[1]);
 	
 	if (argc > 2 && command.type() == CommandType::List) {
-		command.list.project = std::string(argv[2]);
+		parseListCommand(argc-2, argv+2, command);
 	}
 
 	return command;

@@ -50,6 +50,12 @@ enum TaskType {
 
 extern const char* TaskColours[TaskType::TaskTypeSize];
 
+enum ListMode {
+	Tasks,
+	Projects,
+	Tags
+};
+
 struct Command {
 	Command() : ct(CommandType::None) {
 	}
@@ -58,6 +64,7 @@ struct Command {
 		ct = commandType;
 		switch (ct) {
 		case CommandType::List: 
+			list.mode = ListMode::Tasks;
 			new (&list.project) std::string();
 			new (&list.tag)     std::string();
 			break;
@@ -82,6 +89,7 @@ struct Command {
 		ct = other.type();
 		switch (ct) {
 		case CommandType::List: 
+			list.mode = other.list.mode;
 			new (&list.project) std::string(other.list.project);
 			new (&list.tag)     std::string(other.list.tag);
 			break;
@@ -107,6 +115,7 @@ struct Command {
 		ct = other.type();
 		switch (ct) {
 		case CommandType::List: 
+			list.mode = other.list.mode;
 			new (&list.project) std::string(other.list.project);
 			new (&list.tag)     std::string(other.list.tag);
 			break;
@@ -159,11 +168,7 @@ struct Command {
 	
 	union {
 		struct {
-			enum {
-				Tasks,
-				Projects,
-				Tags
-			} mode;
+			ListMode mode;
 			std::string project;
 			std::string tag;
 		} list;

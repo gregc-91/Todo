@@ -56,7 +56,7 @@ static void executeListCommand(const Command command) {
 
 	std::ifstream file("todo.txt");
 	
-	bool filterProject = false;
+	bool filterProject = command.list.project != "";
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -69,6 +69,10 @@ static void executeListCommand(const Command command) {
 		if (isProject) {
 			std::stringstream lineStream(trimLeadingWhitespace(line.substr(1))); 
 			std::getline(lineStream, projectName, ' ');
+		}
+		
+		if (command.list.mode == ListMode::Projects && !isProject) {
+			continue;
 		}
 		
 		if (filterProject && strcasecmp(command.list.project.c_str(), projectName.c_str())) {
