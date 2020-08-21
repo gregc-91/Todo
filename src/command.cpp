@@ -32,6 +32,16 @@ std::string trimLeadingWhitespace(const std::string &str) {
 	return start == std::string::npos ? "" : str.substr(start);
 }
 
+bool containsTag(const std::string &str, const std::string &tag) {
+	std::stringstream stream(str);
+	std::string intermediate;
+	while(getline(stream, intermediate, ' ')) {
+		if (strcasecmp(intermediate.c_str(), ("@" + tag).c_str()) == 0)
+			return true;
+	}
+	return false;
+}
+
 TaskType parseTaskType(std::string &line) {
 	assert(line.size() >= 3);
 	assert(line[0] == '[');
@@ -47,7 +57,7 @@ TaskType parseTaskType(std::string &line) {
 	case '~': return TaskType::Suspended;
 	case '.': return TaskType::Terminated;
 	default:
-		throw "Found invalid task status";
+		throw std::runtime_error("Found invalid task status");
 	}
 }
 
@@ -57,6 +67,7 @@ static void executeListCommand(const Command command) {
 	std::ifstream file("todo.txt");
 	
 	bool filterProject = command.list.project != "";
+	bool filterTag     = command.list.tag     != "";
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -76,6 +87,10 @@ static void executeListCommand(const Command command) {
 		}
 		
 		if (filterProject && strcasecmp(command.list.project.c_str(), projectName.c_str())) {
+			continue;
+		}
+		
+		if (filterTag && !containsTag(line, command.list.tag)) {
 			continue;
 		}
 		

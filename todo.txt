@@ -1,7 +1,7 @@
 # Project1
 [-] This is an active task with no priority
   [-] This is a subtask
-[!] This is an urgent task
+[!] This is an urgent task @urgent
 [^] This is a high priority task
 [v] This is a low priority task
 [x] This is a completed priority task

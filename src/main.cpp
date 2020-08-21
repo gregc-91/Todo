@@ -79,7 +79,7 @@ void parseListCommand(int argc, char** argv, Command &command) {
 		
 		case '#':
 			if (argv[i][1] != '\0') {
-				if (command.list.project != "") throw "Duplicate project name";
+				if (command.list.project != "") throw std::runtime_error("Duplicate project name");
 				command.list.project = std::string(argv[i]+1);
 			} else {
 				command.list.mode = ListMode::Projects;
@@ -88,13 +88,14 @@ void parseListCommand(int argc, char** argv, Command &command) {
 			break;
 		case '@':
 			if (argv[i][1] != '\0') {
-				if (command.list.tag != "") throw "Duplicate tag";
+				if (command.list.tag != "") throw std::runtime_error("Duplicate tag");
 				command.list.tag = std::string(argv[i]+1);
 			} else {
 				command.list.mode = ListMode::Tags;
 			}
+			break;
 		default:
-			throw "Unknown list subcommand";
+			throw std::runtime_error("Unknown list subcommand");
 		}
 	}
 }
