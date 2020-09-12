@@ -42,6 +42,13 @@ bool containsTag(const std::string &str, const std::string &tag) {
 	return false;
 }
 
+bool hasStatus(const std::string &str, const char status) {
+	if (str.size() >= 3 && str[0] == '[' && str[1] == status && str[2] == ']') {
+		return true;
+	}
+	return false;
+}
+
 TaskType parseTaskType(std::string &line) {
 	assert(line.size() >= 3);
 	assert(line[0] == '[');
@@ -68,6 +75,7 @@ static void executeListCommand(const Command command) {
 	
 	bool filterProject = command.list.project != "";
 	bool filterTag     = command.list.tag     != "";
+	bool filterStatus  = command.list.status  != '\0';
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -91,6 +99,10 @@ static void executeListCommand(const Command command) {
 		}
 		
 		if (filterTag && !containsTag(line, command.list.tag)) {
+			continue;
+		}
+		
+		if (filterStatus && !hasStatus(line, command.list.status)) {
 			continue;
 		}
 		

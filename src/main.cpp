@@ -84,7 +84,6 @@ void parseListCommand(int argc, char** argv, Command &command) {
 			} else {
 				command.list.mode = ListMode::Projects;
 			}
-			
 			break;
 		case '@':
 			if (argv[i][1] != '\0') {
@@ -93,6 +92,11 @@ void parseListCommand(int argc, char** argv, Command &command) {
 			} else {
 				command.list.mode = ListMode::Tags;
 			}
+			break;
+		case '[':
+			command.list.status = argv[i][1];
+			if (argv[i][1] == '\0') throw std::runtime_error("Invalid status");
+			if (argv[i][2] != ']') throw std::runtime_error("Invalid status");
 			break;
 		default:
 			throw std::runtime_error("Unknown list subcommand");

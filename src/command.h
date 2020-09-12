@@ -65,6 +65,7 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = ListMode::Tasks;
+			list.status = '\0';
 			new (&list.project) std::string();
 			new (&list.tag)     std::string();
 			break;
@@ -90,6 +91,7 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
+			list.status = other.list.status;
 			new (&list.project) std::string(other.list.project);
 			new (&list.tag)     std::string(other.list.tag);
 			break;
@@ -116,6 +118,7 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
+			list.status = other.list.status;
 			new (&list.project) std::string(other.list.project);
 			new (&list.tag)     std::string(other.list.tag);
 			break;
@@ -171,6 +174,7 @@ struct Command {
 			ListMode mode;
 			std::string project;
 			std::string tag;
+			char status;
 		} list;
 		
 		struct {
