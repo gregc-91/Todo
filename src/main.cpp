@@ -65,16 +65,20 @@ public:
 	
 	void addLine(unsigned index, const std::string &line);
 	void print();
+	void commit();
 	
+	std::string filename;
 	std::vector<std::string> lines;
 };
 
-Todo::Todo(const std::string &filename) {
+Todo::Todo(const std::string &filename) :
+	filename(filename) 
+{
 	std::ifstream file(filename);
-	
 	for(std::string line; getline(file, line); ) {
 		lines.push_back(line);
 	}
+	file.close();
 }
 
 void Todo::addLine(unsigned index, const std::string &line) {
@@ -89,6 +93,14 @@ void Todo::print() {
 	for (auto &s : lines) {
 		std::cout << s << std::endl;
 	}
+}
+
+void Todo::commit() {
+	std::ofstream file(filename);
+	for (auto &s : lines) {
+		file << s << std::endl;
+	}
+	file.close();
 }
 
 Command parseCommandType(char* str) {
