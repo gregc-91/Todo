@@ -7,6 +7,9 @@
 #include <ctime>
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <iomanip>
+#include <vector>
 
 #include "command.h"
 
@@ -57,8 +60,36 @@ class Task {
 };
 
 class Todo {
-		
+public:
+	Todo(const std::string &filename);
+	
+	void addLine(unsigned index, const std::string &line);
+	void print();
+	
+	std::vector<std::string> lines;
 };
+
+Todo::Todo(const std::string &filename) {
+	std::ifstream file(filename);
+	
+	for(std::string line; getline(file, line); ) {
+		lines.push_back(line);
+	}
+}
+
+void Todo::addLine(unsigned index, const std::string &line) {
+	
+	if (index > lines.size())
+		throw std::runtime_error("Index out of bounds");
+	
+	lines.insert(lines.begin() + index, line);
+}
+
+void Todo::print() {
+	for (auto &s : lines) {
+		std::cout << s << std::endl;
+	}
+}
 
 Command parseCommandType(char* str) {
 	
@@ -153,7 +184,7 @@ int main(int argc, char** argv) {
 	setupConsole();
 	
 	Command command;
-
+	
 	try {
 		command = parseCommand(argc, argv);
 	} catch(std::invalid_argument &e) {
