@@ -7,11 +7,9 @@
 #include <ctime>
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <iomanip>
-#include <vector>
 
 #include "command.h"
+#include "todo.h"
 
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING  0x0004
@@ -58,50 +56,6 @@ class Task {
 	std::string tag;
 	std::string text;
 };
-
-class Todo {
-public:
-	Todo(const std::string &filename);
-	
-	void addLine(unsigned index, const std::string &line);
-	void print();
-	void commit();
-	
-	std::string filename;
-	std::vector<std::string> lines;
-};
-
-Todo::Todo(const std::string &filename) :
-	filename(filename) 
-{
-	std::ifstream file(filename);
-	for(std::string line; getline(file, line); ) {
-		lines.push_back(line);
-	}
-	file.close();
-}
-
-void Todo::addLine(unsigned index, const std::string &line) {
-	
-	if (index > lines.size())
-		throw std::runtime_error("Index out of bounds");
-	
-	lines.insert(lines.begin() + index, line);
-}
-
-void Todo::print() {
-	for (auto &s : lines) {
-		std::cout << s << std::endl;
-	}
-}
-
-void Todo::commit() {
-	std::ofstream file(filename);
-	for (auto &s : lines) {
-		file << s << std::endl;
-	}
-	file.close();
-}
 
 Command parseCommandType(char* str) {
 	
@@ -188,12 +142,43 @@ Command parseCommand(int argc, char** argv) {
 }
 
 void usage() {
-	printf("usage: todo <command> [options]\n");
+	printf("usage: todo [-h | --help] <command> [<subcommand...>]                                            \n");
+	printf("         <command> :                                                                             \n");
+	printf("           list                                 : lists all the tasks...   in a file             \n");
+    printf("                    #<Project>                                               in a project        \n");
+    printf("                    @<Tag>                                                   with tag            \n");
+    printf("                    [<Status>]                                               with status         \n");
+    printf("           list #                               : list all the projects... in a file             \n");
+    printf("                    @<Tag>                                                   with tag            \n");
+    printf("                    [<Status>]                                               with status         \n");
+    printf("           list @                               : list all the tags...     in a file             \n");
+    printf("                    #<Project>                                               in a project        \n");
+    printf("                    [<Status>]                                               with status         \n");
+	printf("                                                                                                 \n");
+	printf("           add      [#Project] [@Tag] 'Task'    : adds a task with optional project and tag      \n");
+	printf("                                                                                                 \n");
+	printf("           remove   <line>                      : removes a task from the given line             \n");
+	printf("           	                                                                                     \n");
+	printf("           do       <line>                      : marks task on given line as done               \n");
+	printf("           	                                                                                     \n");
+	printf("           undo                                 : un-does the last action                        \n");
+	printf("           	                                                                                     \n");
+	printf("           tidy                                 : Formats the todo.txt file:                     \n");
+	printf("           		                                    - Removes excess lines                       \n");
+	printf("           		                                    - Fixes indentation and whitespace           \n");
+	printf("           		                                    - Checks for syntax errors                   \n");
+	printf("           		                                    - Moves done and suspended tasks to done.txt \n");
 }
 
 int main(int argc, char** argv) {
 	
 	setupConsole();
+	
+	if (argc > 1 && strncmp(argv[1], "-h", 2) == 0) {
+		usage();
+		exit(0);
+	}
+	
 	
 	Command command;
 	
