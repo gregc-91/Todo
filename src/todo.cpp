@@ -31,6 +31,19 @@ void Todo::removeLine(unsigned index) {
 	lines.erase(lines.begin() + index);
 }
 
+void Todo::setStatus(unsigned index, char status) {
+	
+	if (index > lines.size())
+		throw std::runtime_error("Index out of bounds");
+	
+	size_t pos = lines[index].find_first_of('[');
+	
+	if (pos == std::string::npos || pos+2 >= lines[index].length() || lines[index][pos+2] != ']')
+		throw std::runtime_error("Unable to parse line as task");
+	
+	lines[index][pos+1] = status;
+}
+
 void Todo::print() {
 	for (auto &s : lines) {
 		std::cout << s << std::endl;

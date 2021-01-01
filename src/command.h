@@ -81,6 +81,7 @@ struct Command {
 			new (&remove.tag)     std::string();
 			break;
 		case CommandType::Doo:
+			doo.index = 0;
 			new (&doo.project) std::string();
 			new (&doo.tag)     std::string();
 			break;
@@ -108,6 +109,7 @@ struct Command {
 			new (&remove.tag)     std::string(other.remove.tag);
 			break;
 		case CommandType::Doo:
+			doo.index = other.doo.index;
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
 			break;
@@ -136,6 +138,7 @@ struct Command {
 			new (&remove.tag)     std::string(other.remove.tag);
 			break;
 		case CommandType::Doo:
+			doo.index = other.doo.index;
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
 			break;

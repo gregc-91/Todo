@@ -173,8 +173,12 @@ static void executeRemoveCommand(const Command command) {
 	todo.commit();
 }
 
-static void executeDooCommand(const Command /*command*/) {
+static void executeDooCommand(const Command command) {
 	printf("Executing do command.\n");
+	
+	Todo todo("todo.txt");
+	todo.setStatus(command.doo.index, 'x');
+	todo.commit();
 }
 
 static void executeTidyCommand(const Command /*command*/) {

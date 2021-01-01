@@ -10,6 +10,7 @@ public:
 	
 	void addLine(unsigned index, const std::string &line);
 	void removeLine(unsigned index);
+	void setStatus(unsigned index, char status);
 	void print();
 	void commit();
 	
