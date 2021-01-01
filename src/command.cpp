@@ -1,5 +1,6 @@
 
 #include "command.h"
+#include "todo.h"
 
 #include <strings.h>
 #include <fstream>
@@ -32,6 +33,17 @@ std::string trimLeadingWhitespace(const std::string &str) {
 	return start == std::string::npos ? "" : str.substr(start);
 }
 
+std::string createTaskString(const char status, std::string line, std::string tag) {
+	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (" @" + tag));
+}
+
+bool isProject(const std::string &str, const std::string &project) {
+	std::string line = trimLeadingWhitespace(project);
+	if (line.front() != '#') return false;
+	
+	return project == line.substr(1);
+}
+
 bool containsTag(const std::string &str, const std::string &tag) {
 	std::stringstream stream(str);
 	std::string intermediate;
@@ -47,6 +59,23 @@ bool hasStatus(const std::string &str, const char status) {
 		return true;
 	}
 	return false;
+}
+
+unsigned findLastOfProject(const Todo &todo, const std::string &project) {
+	
+	if (project.empty())
+		return todo.lines.size();
+	
+	bool matchProject = false;
+	for (unsigned i = 0; i < todo.lines.size(); i++) {
+		std::string line = trimLeadingWhitespace(todo.lines[i]);
+		if (line[0] == '#') {
+			if (isProject(todo.lines[i], project)) matchProject = true;
+			else if (matchProject) return i;
+		}
+	}
+	
+	return todo.lines.size();
 }
 
 TaskType parseTaskType(std::string &line) {
@@ -124,12 +153,24 @@ static void executeListCommand(const Command command) {
 	}
 }
 
-static void executeAddCommand(const Command /*command*/) {
+static void executeAddCommand(const Command command) {
 	printf("Executing add command.\n");
+	
+	Todo todo("todo.txt");
+	std::string taskString = createTaskString('-', command.add.task, command.add.tag);
+	
+	unsigned lineNo = findLastOfProject(todo, command.add.project);
+	
+	todo.addLine(lineNo, taskString);
+	todo.commit();
 }
 
-static void executeRemoveCommand(const Command /*command*/) {
+static void executeRemoveCommand(const Command command) {
 	printf("Executing remove command.\n");
+	
+	Todo todo("todo.txt");
+	todo.removeLine(command.remove.index);
+	todo.commit();
 }
 
 static void executeDooCommand(const Command /*command*/) {

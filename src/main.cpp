@@ -126,6 +126,19 @@ void parseAddCommand(int argc, char** argv, Command &command) {
 		throw std::runtime_error("Missing line to add");
 }
 
+void parseRemoveCommand(int argc, char** argv, Command &command) {
+	
+	if (argc != 1)
+		throw std::runtime_error("Invalid number of arguments");
+	
+	char *endptr;
+	long line = strtol(argv[0], &endptr, 0);
+	if (endptr == argv[0])
+		throw std::runtime_error("Unable to parse line number");
+	
+	command.remove.index = line;
+}
+
 Command parseCommand(int argc, char** argv) {
 	if (argc < 2)  throw std::invalid_argument("Not enough arguments!");
 	
@@ -136,6 +149,9 @@ Command parseCommand(int argc, char** argv) {
 	}
 	if (command.type() == CommandType::Add) {
 		parseAddCommand(argc-2, argv+2, command);
+	}
+	if (command.type() == CommandType::Remove) {
+		parseRemoveCommand(argc-2, argv+2, command);
 	}
 
 	return command;

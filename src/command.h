@@ -1,28 +1,29 @@
+#ifndef __COMMAND_H__
+#define __COMMAND_H__
 
 #include <assert.h>
 #include <string>
 
 namespace Colour {
-	static const char* Black        = "\u001b[30m";
-	static const char* Red          = "\u001b[31m";
-	static const char* Green        = "\u001b[32m";
-	static const char* Yellow       = "\u001b[33m";
-	static const char* Blue         = "\u001b[34m";
-	static const char* Pink         = "\u001b[35m";
-	static const char* Cyan         = "\u001b[36m";
-	static const char* White        = "\u001b[37m";
-	static const char* BrightBlack  = "\u001b[30;1m";
-	static const char* BrightRed    = "\u001b[31;1m";
-	static const char* BrightGreen  = "\u001b[32;1m";
-	static const char* BrightYellow = "\u001b[33;1m";
-	static const char* BrightBlue   = "\u001b[34;1m";
-	static const char* BrightPink   = "\u001b[35;1m";
-	static const char* BrightCyan   = "\u001b[36;1m";
-	static const char* BrightWhite  = "\u001b[37;1m";
+	__attribute__ ((unused)) static const char* Black        = "\u001b[30m";
+	__attribute__ ((unused)) static const char* Red          = "\u001b[31m";
+	__attribute__ ((unused)) static const char* Green        = "\u001b[32m";
+	__attribute__ ((unused)) static const char* Yellow       = "\u001b[33m";
+	__attribute__ ((unused)) static const char* Blue         = "\u001b[34m";
+	__attribute__ ((unused)) static const char* Pink         = "\u001b[35m";
+	__attribute__ ((unused)) static const char* Cyan         = "\u001b[36m";
+	__attribute__ ((unused)) static const char* White        = "\u001b[37m";
+	__attribute__ ((unused)) static const char* BrightBlack  = "\u001b[30;1m";
+	__attribute__ ((unused)) static const char* BrightRed    = "\u001b[31;1m";
+	__attribute__ ((unused)) static const char* BrightGreen  = "\u001b[32;1m";
+	__attribute__ ((unused)) static const char* BrightYellow = "\u001b[33;1m";
+	__attribute__ ((unused)) static const char* BrightBlue   = "\u001b[34;1m";
+	__attribute__ ((unused)) static const char* BrightPink   = "\u001b[35;1m";
+	__attribute__ ((unused)) static const char* BrightCyan   = "\u001b[36;1m";
+	__attribute__ ((unused)) static const char* BrightWhite  = "\u001b[37;1m";
+	__attribute__ ((unused)) static const char* Orange       = "\u001b[38;5;208m";
 	
-	static const char* Orange       = "\u001b[38;5;208m";
-	
-	static const char* Reset  = "\u001b[0m";
+	__attribute__ ((unused)) static const char* Reset  = "\u001b[0m";
 }
 
 enum CommandType {
@@ -75,6 +76,7 @@ struct Command {
 			new (&add.task)    std::string();
 			break;
 		case CommandType::Remove:
+			remove.index = 0;
 			new (&remove.project) std::string();
 			new (&remove.tag)     std::string();
 			break;
@@ -101,6 +103,7 @@ struct Command {
 			new (&add.task)    std::string(other.add.task);
 			break;
 		case CommandType::Remove:
+			remove.index = other.remove.index;
 			new (&remove.project) std::string(other.remove.project);
 			new (&remove.tag)     std::string(other.remove.tag);
 			break;
@@ -128,6 +131,7 @@ struct Command {
 			new (&add.task)    std::string(other.add.task);
 			break;
 		case CommandType::Remove:
+			remove.index = other.remove.index;
 			new (&remove.project) std::string(other.remove.project);
 			new (&remove.tag)     std::string(other.remove.tag);
 			break;
@@ -209,3 +213,5 @@ private:
 };
 
 void executeCommand(const Command command);
+
+#endif
