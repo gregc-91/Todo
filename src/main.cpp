@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <ctime>
 #include <iostream>
+#include <fstream>
 #include <string>
 
 #include "command.h"
@@ -221,6 +222,10 @@ int main(int argc, char** argv) {
 		exit(-1);
 	}
 	
+	std::ofstream history_stream("history.txt");
+	command.serialise(history_stream);
+	history_stream.close();
+
 	try {
 		executeCommand(command);
 	} catch(...) {

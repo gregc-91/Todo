@@ -104,7 +104,7 @@ static void executeListCommand(const Command command) {
 	
 	bool filterProject = command.list.project != "";
 	bool filterTag     = command.list.tag     != "";
-	bool filterStatus  = command.list.status  != '\0';
+	bool filterStatus  = command.list.status  != '_';
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -210,4 +210,121 @@ void executeCommand(const Command command) {
 		} break;
 	default: break;
 	}
+}
+
+void serialise_string(std::ostream &os, std::string &str)
+{
+	os << str.length() << ',';
+	if (str.length()) {
+		os << str;
+	}
+	os << ',';
+}
+
+void deserialise_string(std::istream &is, std::string &str)
+{
+	size_t length;
+	char junk;
+	is >> length >> junk;
+	if (length) str.resize(length);
+	for (unsigned i = 0; i < length; i++) {
+		is >> str[i];
+	}
+	is >> junk;
+}
+
+void Command::serialise(std::ostream &os) 
+{
+	os << ct << ',';
+	
+	switch (ct) {
+	case CommandType::List:
+	{
+		os << list.mode << ',';
+		serialise_string(os, list.project);
+		serialise_string(os, list.tag);
+		os << list.status << ',';
+		break;
+	}
+	case CommandType::Add:
+	{
+		serialise_string(os, add.project);
+		serialise_string(os, add.tag);
+		serialise_string(os, add.task);
+		break;
+	}
+	case CommandType::Remove:
+	{
+		serialise_string(os, remove.project);
+		serialise_string(os, remove.tag);
+		os << remove.index << ',';
+		break;
+	}
+	case CommandType::Doo:
+	{
+		serialise_string(os, doo.project);
+		serialise_string(os, doo.tag);
+		os << doo.index << ',';
+		break;
+	}
+	case CommandType::Tidy:
+	{
+		break;
+	}
+	default: break;	
+	}
+}
+
+void Command::deserialise(std::istream &is)
+{
+	char tmp;
+	is >> ct >> tmp;
+	
+	switch (ct) {
+	case CommandType::List:
+	{
+		is >> list.mode >> tmp;
+		new (&list.project) std::string();
+		deserialise_string(is, list.project);
+		new (&list.tag) std::string();
+		deserialise_string(is, list.tag);
+		is >> list.status >> tmp;
+		break;
+	}
+	case CommandType::Add:
+	{
+		new (&add.project) std::string();
+		deserialise_string(is, add.project);
+		new (&add.tag) std::string();
+		deserialise_string(is, add.tag);
+		new (&add.task) std::string();
+		deserialise_string(is, add.task);
+		break;
+	}
+	case CommandType::Remove:
+	{
+		new (&remove.project) std::string();
+		deserialise_string(is, remove.project);
+		new (&remove.tag) std::string();
+		deserialise_string(is, remove.tag);
+		is >> remove.index >> tmp;
+		break;
+	}
+	case CommandType::Doo:
+	{
+		new (&doo.project) std::string();
+		deserialise_string(is, doo.project);
+		new (&doo.tag) std::string();
+		deserialise_string(is, doo.tag);
+		is >> doo.index >> tmp;
+		break;
+	}
+	case CommandType::Tidy:
+	{
+		break;
+	}
+	default:	
+		throw std::runtime_error("Unexpected command type in command history deserialisation");
+	}
+	
 }

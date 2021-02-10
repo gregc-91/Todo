@@ -3,6 +3,8 @@
 
 #include <assert.h>
 #include <string>
+#include <ostream>
+#include <istream>
 
 namespace Colour {
 	__attribute__ ((unused)) static const char* Black        = "\u001b[30m";
@@ -38,6 +40,18 @@ enum CommandType {
 
 extern const char* CommandStrings[CommandType::CommandTypeSize];
 
+inline std::ostream &operator<<(std::ostream &os, CommandType x) {
+  os << (int)x;
+  return os;
+}
+
+inline std::istream &operator>>(std::istream &is, CommandType &x) {
+  int tmp;
+  is >> tmp;
+  x = CommandType(tmp);
+  return is;
+}
+
 enum TaskType {
 	Normal,
 	Urgent,
@@ -51,11 +65,35 @@ enum TaskType {
 
 extern const char* TaskColours[TaskType::TaskTypeSize];
 
+inline std::ostream &operator<<(std::ostream &os, TaskType x) {
+  os << (int)x;
+  return os;
+}
+
+inline std::istream &operator>>(std::istream &is, TaskType &x) {
+  int tmp;
+  is >> tmp;
+  x = TaskType(tmp);
+  return is;
+}
+
 enum ListMode {
 	Tasks,
 	Projects,
 	Tags
 };
+
+inline std::ostream &operator<<(std::ostream &os, ListMode x) {
+  os << (int)x;
+  return os;
+}
+
+inline std::istream &operator>>(std::istream &is, ListMode &x) {
+  int tmp;
+  is >> tmp;
+  x = ListMode(tmp);
+  return is;
+}
 
 struct Command {
 	Command() : ct(CommandType::None) {
@@ -66,7 +104,7 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = ListMode::Tasks;
-			list.status = '\0';
+			list.status = '_';
 			new (&list.project) std::string();
 			new (&list.tag)     std::string();
 			break;
@@ -175,6 +213,9 @@ struct Command {
 	}
 	
 	CommandType type() const { return ct; }
+	
+	void serialise(std::ostream &os);
+	void deserialise(std::istream &is);
 	
 	union {
 		struct {
