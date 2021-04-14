@@ -6,6 +6,8 @@
 #include <ostream>
 #include <istream>
 
+class Todo;
+
 namespace Colour {
 	__attribute__ ((unused)) static const char* Black        = "\u001b[30m";
 	__attribute__ ((unused)) static const char* Red          = "\u001b[31m";
@@ -109,6 +111,7 @@ struct Command {
 			new (&list.tag)     std::string();
 			break;
 		case CommandType::Add:
+			add.index = 0;
 			new (&add.project) std::string();
 			new (&add.tag)     std::string();
 			new (&add.task)    std::string();
@@ -120,6 +123,7 @@ struct Command {
 			break;
 		case CommandType::Doo:
 			doo.index = 0;
+			doo.status = 'x';
 			new (&doo.project) std::string();
 			new (&doo.tag)     std::string();
 			break;
@@ -137,6 +141,7 @@ struct Command {
 			new (&list.tag)     std::string(other.list.tag);
 			break;
 		case CommandType::Add:
+			add.index = other.add.index;
 			new (&add.project) std::string(other.add.project);
 			new (&add.tag)     std::string(other.add.tag);
 			new (&add.task)    std::string(other.add.task);
@@ -148,6 +153,7 @@ struct Command {
 			break;
 		case CommandType::Doo:
 			doo.index = other.doo.index;
+			doo.status = other.doo.status;
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
 			break;
@@ -166,6 +172,7 @@ struct Command {
 			new (&list.tag)     std::string(other.list.tag);
 			break;
 		case CommandType::Add:
+			add.index = other.add.index;
 			new (&add.project) std::string(other.add.project);
 			new (&add.tag)     std::string(other.add.tag);
 			new (&add.task)    std::string(other.add.task);
@@ -177,6 +184,7 @@ struct Command {
 			break;
 		case CommandType::Doo:
 			doo.index = other.doo.index;
+			doo.status = other.doo.status;
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
 			break;
@@ -216,6 +224,7 @@ struct Command {
 	
 	void serialise(std::ostream &os);
 	void deserialise(std::istream &is);
+	void print();
 	
 	union {
 		struct {
@@ -229,6 +238,7 @@ struct Command {
 			std::string project;
 			std::string tag;
 			std::string task;
+			uint32_t index;
 		} add;
 		
 		struct {
@@ -241,6 +251,7 @@ struct Command {
 			std::string project;
 			std::string tag;
 			uint32_t index;
+			char status;
 		} doo;
 		
 		struct {
@@ -256,6 +267,7 @@ private:
 	CommandType ct;
 };
 
-void executeCommand(const Command command);
+Command inverseCommand(const Todo &todo, const Command command);
+void executeCommand(Todo &todo, Command &command);
 
 #endif

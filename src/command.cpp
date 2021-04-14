@@ -38,7 +38,7 @@ std::string createTaskString(const char status, std::string line, std::string ta
 }
 
 bool isProject(const std::string &str, const std::string &project) {
-	std::string line = trimLeadingWhitespace(project);
+	std::string line = trimLeadingWhitespace(str);
 	if (line.front() != '#') return false;
 	
 	return project == line.substr(1);
@@ -67,12 +67,14 @@ unsigned findLastOfProject(const Todo &todo, const std::string &project) {
 		return todo.lines.size();
 	
 	bool matchProject = false;
+	unsigned lastNonEmpty = 0;
 	for (unsigned i = 0; i < todo.lines.size(); i++) {
 		std::string line = trimLeadingWhitespace(todo.lines[i]);
 		if (line[0] == '#') {
 			if (isProject(todo.lines[i], project)) matchProject = true;
-			else if (matchProject) return i;
+			else if (matchProject) return lastNonEmpty+1;
 		}
+		if (!line.empty()) lastNonEmpty = i;
 	}
 	
 	return todo.lines.size();
@@ -97,6 +99,7 @@ TaskType parseTaskType(std::string &line) {
 	}
 }
 
+// Todo: convert this to using the Todo class
 static void executeListCommand(const Command command) {
 	printf("Executing list command.\n");
 
@@ -153,30 +156,27 @@ static void executeListCommand(const Command command) {
 	}
 }
 
-static void executeAddCommand(const Command command) {
+static void executeAddCommand(Todo& todo, Command &command) {
 	printf("Executing add command.\n");
 	
-	Todo todo("todo.txt");
 	std::string taskString = createTaskString('-', command.add.task, command.add.tag);
 	
-	unsigned lineNo = findLastOfProject(todo, command.add.project);
+	command.add.index = findLastOfProject(todo, command.add.project);
 	
-	todo.addLine(lineNo, taskString);
+	todo.addLine(command.add.index, taskString);
 	todo.commit();
 }
 
-static void executeRemoveCommand(const Command command) {
+static void executeRemoveCommand(Todo& todo, const Command command) {
 	printf("Executing remove command.\n");
 	
-	Todo todo("todo.txt");
 	todo.removeLine(command.remove.index);
 	todo.commit();
 }
 
-static void executeDooCommand(const Command command) {
+static void executeDooCommand(Todo& todo, const Command command) {
 	printf("Executing do command.\n");
 	
-	Todo todo("todo.txt");
 	todo.setStatus(command.doo.index, 'x');
 	todo.commit();
 }
@@ -185,31 +185,120 @@ static void executeTidyCommand(const Command /*command*/) {
 	printf("Executing tidy command.\n");
 }
 
-void executeCommand(const Command command) {
+void executeCommand(Todo &todo, Command &command) {
 	
 	switch (command.type()) {
 	case CommandType::List:
 		{
-			executeListCommand(command);
+			executeListCommand(/*todo, */command);
 		} break;
 	case CommandType::Add:
 		{
-			executeAddCommand(command);
+			executeAddCommand(todo, command);
 		} break;
 	case CommandType::Remove:
 		{
-			executeRemoveCommand(command);
+			executeRemoveCommand(todo, command);
 		} break;
 	case CommandType::Doo:
 		{
-			executeDooCommand(command);
+			executeDooCommand(todo, command);
 		} break;
 	case CommandType::Tidy:
 		{
-			executeTidyCommand(command);
+			executeTidyCommand(/*todo,*/ command);
 		} break;
 	default: break;
 	}
+}
+
+// Todo: check these
+std::string lineToProject(const Todo &todo, uint32_t index)
+{
+	for (int i = index; i >= 0; i--) {
+		if (todo.lines[i].front() == '#') {
+			return trimLeadingWhitespace(todo.lines[i]).substr(1);
+		}
+	}
+	return std::string("");
+}
+
+std::string lineToTag(const Todo &todo, uint32_t index)
+{
+	size_t pos = todo.lines[index].find_last_of(" ");
+	if (pos != std::string::npos && pos+1 < todo.lines[index].length() && todo.lines[index][pos+1] == '@') {
+		return todo.lines[index].substr(pos+2);
+	}
+	return "";
+}
+
+std::string lineToTask(const Todo &todo, uint32_t index)
+{
+	size_t start = todo.lines[index].find_first_of("[") + 3;
+	
+	if (start >= todo.lines[index].length()) {
+		throw std::runtime_error("Failed to parse task string");
+	}
+	
+	std::string line = todo.lines[index].substr(start);
+	
+	size_t pos = line.find_last_of(" ");
+	if (pos != std::string::npos && pos+1 < todo.lines[index].length() && todo.lines[index][pos+1] == '@') {
+		return line.substr(0, pos);
+	}
+	return line;
+}
+
+char lineToStatus(const Todo &todo, uint32_t index) 
+{
+	size_t start = todo.lines[index].find_first_of("[") + 1;
+	
+	if (start >= todo.lines[index].length()) {
+		throw std::runtime_error("Failed to parse task string");
+	}
+	
+	printf("Status for line %d: %c\n", index, todo.lines[index][start]);
+	return todo.lines[index][start];
+}
+
+Command inverseCommand(const Todo &todo, const Command command)
+{
+	// List : None
+	// Add  : Remove
+	// Doo  : Undo
+	// Tidy : None
+	
+	switch (command.type()) {
+	case CommandType::Add:
+		{
+			Command inverse(CommandType::Remove);
+			inverse.remove.project = command.add.project;
+			inverse.remove.tag = command.add.tag;
+			inverse.remove.index = findLastOfProject(todo, command.add.project);
+			return inverse;
+		} break;
+	case CommandType::Remove:
+		{
+			Command inverse(CommandType::Add);
+			inverse.add.project = lineToProject(todo, command.remove.index);
+			inverse.add.tag = lineToTag(todo, command.remove.index);
+			inverse.add.task = lineToTask(todo, command.remove.index);
+			inverse.add.index = command.remove.index;
+			return inverse;
+		} break;
+	case CommandType::Doo:
+		{
+			Command inverse(CommandType::Doo);
+			inverse.doo.project = command.doo.project;
+			inverse.doo.tag = command.doo.tag;
+			inverse.doo.index = command.doo.index;
+			inverse.doo.status = lineToStatus(todo, command.doo.index);
+			return inverse;
+		} break;
+	default: break;
+	}
+	
+	return Command();
 }
 
 void serialise_string(std::ostream &os, std::string &str)
@@ -251,6 +340,7 @@ void Command::serialise(std::ostream &os)
 		serialise_string(os, add.project);
 		serialise_string(os, add.tag);
 		serialise_string(os, add.task);
+		os << add.index << ',';
 		break;
 	}
 	case CommandType::Remove:
@@ -265,6 +355,7 @@ void Command::serialise(std::ostream &os)
 		serialise_string(os, doo.project);
 		serialise_string(os, doo.tag);
 		os << doo.index << ',';
+		os << list.status << ',';
 		break;
 	}
 	case CommandType::Tidy:
@@ -299,6 +390,7 @@ void Command::deserialise(std::istream &is)
 		deserialise_string(is, add.tag);
 		new (&add.task) std::string();
 		deserialise_string(is, add.task);
+		is >> add.index >> tmp;
 		break;
 	}
 	case CommandType::Remove:
@@ -317,6 +409,7 @@ void Command::deserialise(std::istream &is)
 		new (&doo.tag) std::string();
 		deserialise_string(is, doo.tag);
 		is >> doo.index >> tmp;
+		is >> doo.status >> tmp;
 		break;
 	}
 	case CommandType::Tidy:
@@ -326,5 +419,49 @@ void Command::deserialise(std::istream &is)
 	default:	
 		throw std::runtime_error("Unexpected command type in command history deserialisation");
 	}
+}
+
+void Command::print()
+{
+	printf("{Type: %s, ", CommandStrings[ct]);
 	
+	switch (ct) {
+	case CommandType::List:
+	{
+		printf("Mode: %d, ", list.mode);
+		printf("Project: %s, ", list.project.c_str());
+		printf("Tag: %s, ", list.tag.c_str());
+		printf("Status: [%c]}\n", list.status);
+		break;
+	}
+	case CommandType::Add:
+	{
+		printf("Project: %s, ", add.project.c_str());
+		printf("Tag: %s, ", add.tag.c_str());
+		printf("Task: %s, ", add.task.c_str());
+		printf("Index: %d}\n", add.index);
+		break;
+	}
+	case CommandType::Remove:
+	{
+		printf("Project: %s, ", remove.project.c_str());
+		printf("Tag: %s, ", remove.tag.c_str());
+		printf("Index: %d}\n", remove.index);
+		break;
+	}
+	case CommandType::Doo:
+	{
+		printf("Project: %s, ", doo.project.c_str());
+		printf("Tag: %s, ", doo.tag.c_str());
+		printf("Index: %d, ", doo.index);
+		printf("Status: [%c]}\n", doo.status);
+		break;
+	}
+	case CommandType::Tidy:
+	{
+		printf("}\n");
+		break;
+	}
+	default: printf("}\n"); break;	
+	}	
 }

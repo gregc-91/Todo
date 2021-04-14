@@ -1,8 +1,8 @@
 #ifndef __HISTORY_H__
 #define __HISTORY_H__
 
-#include "Todo.h"
-#include "Command.h"
+#include "todo.h"
+#include "command.h"
 
 class History {
 	
