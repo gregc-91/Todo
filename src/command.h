@@ -35,6 +35,7 @@ enum CommandType {
 	Add,
 	Remove,
 	Doo,
+	Undo,
 	Tidy,
 	None,
 	CommandTypeSize
@@ -222,6 +223,7 @@ struct Command {
 	
 	CommandType type() const { return ct; }
 	
+	bool shouldUpdateHistory();
 	void serialise(std::ostream &os);
 	void deserialise(std::istream &is);
 	void print();
@@ -253,6 +255,10 @@ struct Command {
 			uint32_t index;
 			char status;
 		} doo;
+		
+		struct {
+			uint32_t placeholder;
+		} undo;
 		
 		struct {
 			uint32_t placeholder;

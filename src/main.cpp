@@ -114,19 +114,21 @@ int main(int argc, char** argv)
         exit(-1);
     }
 	
-	printf("Command:\n"  );
+	printf("Command:\n  ");
 	command.print();
-	printf("Inverse:\n"  );
+	printf("Inverse:\n  ");
 	inverse.print();
 
     try {
         executeCommand(todo, command);
 		
-		// Update the history file so it can be undone
-		std::ofstream history_stream("history.txt");
-		command.serialise(history_stream);
-		inverse.serialise(history_stream);
-		history_stream.close();
+		if (command.shouldUpdateHistory()) {
+			// Update the history file so it can be undone
+			std::ofstream history_stream("history.txt");
+			command.serialise(history_stream);
+			inverse.serialise(history_stream);
+			history_stream.close();
+		}
     } catch (...) {
         // Todo: handle execution execeptions
         std::cout << "Execution error" << std::endl;

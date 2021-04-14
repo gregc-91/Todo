@@ -12,6 +12,7 @@ const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"Add",
 	"Remove",
 	"Do",
+	"Undo",
 	"Tidy",
 	"None"
 };
@@ -177,8 +178,31 @@ static void executeRemoveCommand(Todo& todo, const Command command) {
 static void executeDooCommand(Todo& todo, const Command command) {
 	printf("Executing do command.\n");
 	
-	todo.setStatus(command.doo.index, 'x');
+	todo.setStatus(command.doo.index, command.doo.status);
 	todo.commit();
+}
+
+static void executeUndoCommand(Todo& todo, const Command command) {
+	printf("Executing undo command.\n");
+	
+	Command previous;
+	Command inverse;
+	
+	// Read the last command and inverse command from the history file
+	try {
+		std::ifstream history_stream("history.txt");
+		previous.deserialise(history_stream);
+		inverse.deserialise(history_stream);
+	} catch (...) {
+        std::cout << "Command history error" << std::endl;
+        exit(-1);
+    }
+	
+	// Print the last commands to check them
+	previous.print();
+	inverse.print();
+	
+	executeCommand(todo, inverse);
 }
 
 static void executeTidyCommand(const Command /*command*/) {
@@ -203,6 +227,10 @@ void executeCommand(Todo &todo, Command &command) {
 	case CommandType::Doo:
 		{
 			executeDooCommand(todo, command);
+		} break;
+	case CommandType::Undo:
+		{
+			executeUndoCommand(todo, command);
 		} break;
 	case CommandType::Tidy:
 		{
@@ -317,7 +345,7 @@ void deserialise_string(std::istream &is, std::string &str)
 	is >> length >> junk;
 	if (length) str.resize(length);
 	for (unsigned i = 0; i < length; i++) {
-		is >> str[i];
+		is >> std::noskipws >> str[i];
 	}
 	is >> junk;
 }
@@ -355,7 +383,7 @@ void Command::serialise(std::ostream &os)
 		serialise_string(os, doo.project);
 		serialise_string(os, doo.tag);
 		os << doo.index << ',';
-		os << list.status << ',';
+		os << doo.status << ',';
 		break;
 	}
 	case CommandType::Tidy:
@@ -421,6 +449,18 @@ void Command::deserialise(std::istream &is)
 	}
 }
 
+bool Command::shouldUpdateHistory()
+{
+	switch (ct) {
+	case CommandType::Add:
+	case CommandType::Remove:
+	case CommandType::Doo:
+		return true;
+	default:
+		return false;
+	}
+}
+
 void Command::print()
 {
 	printf("{Type: %s, ", CommandStrings[ct]);
@@ -455,11 +495,6 @@ void Command::print()
 		printf("Tag: %s, ", doo.tag.c_str());
 		printf("Index: %d, ", doo.index);
 		printf("Status: [%c]}\n", doo.status);
-		break;
-	}
-	case CommandType::Tidy:
-	{
-		printf("}\n");
 		break;
 	}
 	default: printf("}\n"); break;	

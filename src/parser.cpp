@@ -6,6 +6,7 @@ Command parseCommandType(char* str)
     if (!strcasecmp(str, CommandStrings[CommandType::Add])) return Command(CommandType::Add);
     if (!strcasecmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
     if (!strcasecmp(str, CommandStrings[CommandType::Doo])) return Command(CommandType::Doo);
+    if (!strcasecmp(str, CommandStrings[CommandType::Undo])) return Command(CommandType::Undo);
     if (!strcasecmp(str, CommandStrings[CommandType::Tidy])) return Command(CommandType::Tidy);
 
     throw std::invalid_argument("Invalid command type!");
