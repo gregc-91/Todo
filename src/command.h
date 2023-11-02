@@ -13,6 +13,7 @@ enum CommandType {
 	Add,
 	Remove,
 	Doo,
+	Set,
 	Undo,
 	Tidy,
 	None,
@@ -108,6 +109,10 @@ struct Command {
 			new (&doo.project) std::string();
 			new (&doo.tag)     std::string();
 			break;
+		case CommandType::Set:
+			set.index = 0;
+			set.status = 'x';
+			break;
 		default: break;
 		}		
 	}
@@ -138,6 +143,9 @@ struct Command {
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
 			break;
+		case CommandType::Set:
+			set.index = other.set.index;
+			set.status = other.set.status;
 		default: break;
 		}		
 	}
@@ -168,6 +176,10 @@ struct Command {
 			doo.status = other.doo.status;
 			new (&doo.project) std::string(other.doo.project);
 			new (&doo.tag)     std::string(other.doo.tag);
+			break;
+		case CommandType::Set:
+			set.index = other.set.index;
+			set.status = other.set.status;
 			break;
 		default: break;
 		}
@@ -235,6 +247,11 @@ struct Command {
 			uint32_t index;
 			char status;
 		} doo;
+
+		struct {
+			uint32_t index;
+			char status;
+		} set;
 		
 		struct {
 			uint32_t placeholder;

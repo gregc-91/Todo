@@ -1,12 +1,20 @@
 #include "parser.h"
 #include "todo.h"
 
+void validateStatus(char status) {
+    if (strchr("-!^vx~.", status) == NULL) {
+        printf("Error: invalid status\n");
+        exit(0);
+    }
+}
+
 Command parseCommandType(char* str)
 {
     if (!strcasecmp(str, CommandStrings[CommandType::List])) return Command(CommandType::List);
     if (!strcasecmp(str, CommandStrings[CommandType::Add])) return Command(CommandType::Add);
     if (!strcasecmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
     if (!strcasecmp(str, CommandStrings[CommandType::Doo])) return Command(CommandType::Doo);
+    if (!strcasecmp(str, CommandStrings[CommandType::Set])) return Command(CommandType::Set);
     if (!strcasecmp(str, CommandStrings[CommandType::Undo])) return Command(CommandType::Undo);
     if (!strcasecmp(str, CommandStrings[CommandType::Tidy])) return Command(CommandType::Tidy);
 
@@ -89,6 +97,21 @@ void parseDooCommand(int argc, char** argv, Command& command)
     command.doo.index = line;
 }
 
+void parseSetCommand(int argc, char** argv, Command& command)
+{
+    if (argc != 2) throw std::runtime_error("Invalid number of arguments");
+
+    char* endptr;
+    char status = argv[0][0];
+    long line = strtol(argv[1], &endptr, 0);
+    if (endptr == argv[1]) throw std::runtime_error("Unable to parse line number");
+
+    validateStatus(status);
+
+    command.set.index = line;
+    command.set.status = status;
+}
+
 Command parseCommand(int argc, char** argv)
 {
     if (argc < 2) throw std::invalid_argument("Not enough arguments!");
@@ -106,6 +129,9 @@ Command parseCommand(int argc, char** argv)
     }
     if (command.type() == CommandType::Doo) {
         parseDooCommand(argc - 2, argv + 2, command);
+    }
+    if (command.type() == CommandType::Set) {
+        parseSetCommand(argc - 2, argv + 2, command);
     }
 
     return command;

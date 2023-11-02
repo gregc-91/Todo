@@ -84,6 +84,8 @@ void usage()
     printf("                                                                                  \n");
     printf("      do      <line>                   : marks task on given line as done         \n");
     printf("                                                                                  \n");
+    printf("      set     <Status> <line>          : set the status on the given line         \n");
+    printf("                                                                                  \n");
     printf("      undo                             : un-does the last action                  \n");
     printf("                                                                                  \n");
     printf("      tidy                             : Formats the todo.txt file:               \n");
@@ -113,7 +115,7 @@ int main(int argc, char** argv)
         std::cout << "Parse error: " << e.what() << std::endl;
         exit(-1);
     }
-	
+
 	printf("Command:\n  ");
 	command.print();
 	printf("Inverse:\n  ");

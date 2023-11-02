@@ -13,6 +13,7 @@ const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"Add",
 	"Remove",
 	"Do",
+	"Set",
 	"Undo",
 	"Tidy",
 	"None"
@@ -184,6 +185,14 @@ static void executeDooCommand(Todo& todo, const Command command) {
 	todo.printLine(command.doo.index);
 }
 
+static void executeSetCommand(Todo& todo, const Command command) {
+	printf("Executing set command.\n");
+	
+	todo.setStatus(command.set.index, command.set.status);
+	todo.commit();
+	todo.printLine(command.set.index);
+}
+
 static void executeUndoCommand(Todo& todo, const Command command) {
 	printf("Executing undo command.\n");
 	
@@ -229,6 +238,10 @@ void executeCommand(Todo &todo, Command &command) {
 	case CommandType::Doo:
 		{
 			executeDooCommand(todo, command);
+		} break;
+	case CommandType::Set:
+		{
+			executeSetCommand(todo, command);
 		} break;
 	case CommandType::Undo:
 		{
@@ -325,6 +338,14 @@ Command inverseCommand(const Todo &todo, const Command command)
 			inverse.doo.status = lineToStatus(todo, command.doo.index);
 			return inverse;
 		} break;
+	case CommandType::Set:
+		{
+			Command inverse(CommandType::Set);
+			inverse.set.index = command.set.index;
+			printf("Index %d\n", command.set.index);
+			inverse.set.status = lineToStatus(todo, command.set.index);
+			return inverse;
+		} break;
 	default: break;
 	}
 	
@@ -388,6 +409,12 @@ void Command::serialise(std::ostream &os)
 		os << doo.status << ',';
 		break;
 	}
+	case CommandType::Set:
+	{
+		os << set.index << ',';
+		os << set.status << ',';
+		break;
+	}
 	case CommandType::Tidy:
 	{
 		break;
@@ -442,6 +469,12 @@ void Command::deserialise(std::istream &is)
 		is >> doo.status >> tmp;
 		break;
 	}
+	case CommandType::Set:
+	{
+		is >> set.index >> tmp;
+		is >> set.status >> tmp;
+		break;
+	}
 	case CommandType::Tidy:
 	{
 		break;
@@ -457,6 +490,7 @@ bool Command::shouldUpdateHistory()
 	case CommandType::Add:
 	case CommandType::Remove:
 	case CommandType::Doo:
+	case CommandType::Set:
 		return true;
 	default:
 		return false;
@@ -495,6 +529,12 @@ void Command::print()
 	{
 		printf("Project: %s, ", doo.project.c_str());
 		printf("Tag: %s, ", doo.tag.c_str());
+		printf("Index: %d, ", doo.index);
+		printf("Status: [%c]}\n", doo.status);
+		break;
+	}
+	case CommandType::Set:
+	{
 		printf("Index: %d, ", doo.index);
 		printf("Status: [%c]}\n", doo.status);
 		break;
