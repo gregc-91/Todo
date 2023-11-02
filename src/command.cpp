@@ -1,6 +1,7 @@
 
 #include "command.h"
 #include "todo.h"
+#include "colour.h"
 
 #include <strings.h>
 #include <fstream>
@@ -29,18 +30,18 @@ const char* TaskColours[TaskType::TaskTypeSize] = {
 
 const std::string whitespace = " \t\f\v\n\r";
 
-std::string trimLeadingWhitespace(const std::string &str) {
+std::string inline trimLeadingWhitespace(const std::string &str) {
 	size_t start = str.find_first_not_of(whitespace);
 	return start == std::string::npos ? "" : str.substr(start);
 }
 
 std::string createTaskString(const char status, std::string line, std::string tag) {
-	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (" @" + tag));
+	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (" " + TAG_CHAR + tag));
 }
 
 bool isProject(const std::string &str, const std::string &project) {
 	std::string line = trimLeadingWhitespace(str);
-	if (line.front() != '#') return false;
+	if (line.front() != PROJECT_CHAR) return false;
 	
 	return project == line.substr(1);
 }
@@ -49,7 +50,7 @@ bool containsTag(const std::string &str, const std::string &tag) {
 	std::stringstream stream(str);
 	std::string intermediate;
 	while(getline(stream, intermediate, ' ')) {
-		if (strcasecmp(intermediate.c_str(), ("@" + tag).c_str()) == 0)
+		if (strcasecmp(intermediate.c_str(), ("" + TAG_CHAR + tag).c_str()) == 0)
 			return true;
 	}
 	return false;
@@ -71,7 +72,7 @@ unsigned findLastOfProject(const Todo &todo, const std::string &project) {
 	unsigned lastNonEmpty = 0;
 	for (unsigned i = 0; i < todo.lines.size(); i++) {
 		std::string line = trimLeadingWhitespace(todo.lines[i]);
-		if (line[0] == '#') {
+		if (line[0] == PROJECT_CHAR) {
 			if (isProject(todo.lines[i], project)) matchProject = true;
 			else if (matchProject) return lastNonEmpty+1;
 		}
@@ -114,12 +115,12 @@ static void executeListCommand(const Command command) {
 	std::string projectName = "";
 	for(std::string line; getline(file, line); lineNo++) {
 
-		line = trimLeadingWhitespace(line);
-		bool isProject = line.front() == '#';
-		bool isTask    = line.front() == '[';
+		std::string trimmedLine = trimLeadingWhitespace(line);
+		bool isProject = trimmedLine.front() == PROJECT_CHAR;
+		bool isTask    = trimmedLine.front() == '[';
 		
 		if (isProject) {
-			std::stringstream lineStream(trimLeadingWhitespace(line.substr(1))); 
+			std::stringstream lineStream(trimLeadingWhitespace(trimmedLine.substr(1))); 
 			std::getline(lineStream, projectName, ' ');
 		}
 		
@@ -131,11 +132,11 @@ static void executeListCommand(const Command command) {
 			continue;
 		}
 		
-		if (filterTag && !containsTag(line, command.list.tag)) {
+		if (filterTag && !containsTag(trimmedLine, command.list.tag)) {
 			continue;
 		}
 		
-		if (filterStatus && !hasStatus(line, command.list.status)) {
+		if (filterStatus && !hasStatus(trimmedLine, command.list.status)) {
 			continue;
 		}
 		
@@ -144,7 +145,7 @@ static void executeListCommand(const Command command) {
 		if (isProject) {
 			std::cout << Colour::BrightWhite;
 		} else if (isTask) {
-			TaskType taskType = parseTaskType(line);
+			TaskType taskType = parseTaskType(trimmedLine);
 			
 			std::cout << TaskColours[taskType];
 			
@@ -180,6 +181,7 @@ static void executeDooCommand(Todo& todo, const Command command) {
 	
 	todo.setStatus(command.doo.index, command.doo.status);
 	todo.commit();
+	todo.printLine(command.doo.index);
 }
 
 static void executeUndoCommand(Todo& todo, const Command command) {
@@ -244,7 +246,7 @@ void executeCommand(Todo &todo, Command &command) {
 std::string lineToProject(const Todo &todo, uint32_t index)
 {
 	for (int i = index; i >= 0; i--) {
-		if (todo.lines[i].front() == '#') {
+		if (todo.lines[i].front() == PROJECT_CHAR) {
 			return trimLeadingWhitespace(todo.lines[i]).substr(1);
 		}
 	}

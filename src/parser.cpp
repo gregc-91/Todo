@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "todo.h"
 
 Command parseCommandType(char* str)
 {
@@ -16,7 +17,7 @@ void parseListCommand(int argc, char** argv, Command& command)
 {
     for (int i = 0; i < argc; i++) {
         switch (argv[i][0]) {
-            case '#':
+            case PROJECT_CHAR:
                 if (argv[i][1] != '\0') {
                     if (command.list.project != "")
                         throw std::runtime_error("Duplicate project name");
@@ -25,7 +26,7 @@ void parseListCommand(int argc, char** argv, Command& command)
                     command.list.mode = ListMode::Projects;
                 }
                 break;
-            case '@':
+            case TAG_CHAR:
                 if (argv[i][1] != '\0') {
                     if (command.list.tag != "") throw std::runtime_error("Duplicate tag");
                     command.list.tag = std::string(argv[i] + 1);
@@ -48,11 +49,11 @@ void parseAddCommand(int argc, char** argv, Command& command)
 {
     for (int i = 0; i < argc; i++) {
         switch (argv[i][0]) {
-            case '#':
+            case PROJECT_CHAR:
                 if (argv[i][1] == '\0') throw std::runtime_error("Missing project name");
                 command.add.project = std::string(argv[i] + 1);
                 break;
-            case '@':
+            case TAG_CHAR:
                 if (argv[i][1] == '\0') throw std::runtime_error("Missing tag name");
                 command.add.tag = std::string(argv[i] + 1);
                 break;

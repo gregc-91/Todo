@@ -8,28 +8,6 @@
 
 class Todo;
 
-namespace Colour {
-	__attribute__ ((unused)) static const char* Black        = "\u001b[30m";
-	__attribute__ ((unused)) static const char* Red          = "\u001b[31m";
-	__attribute__ ((unused)) static const char* Green        = "\u001b[32m";
-	__attribute__ ((unused)) static const char* Yellow       = "\u001b[33m";
-	__attribute__ ((unused)) static const char* Blue         = "\u001b[34m";
-	__attribute__ ((unused)) static const char* Pink         = "\u001b[35m";
-	__attribute__ ((unused)) static const char* Cyan         = "\u001b[36m";
-	__attribute__ ((unused)) static const char* White        = "\u001b[37m";
-	__attribute__ ((unused)) static const char* BrightBlack  = "\u001b[30;1m";
-	__attribute__ ((unused)) static const char* BrightRed    = "\u001b[31;1m";
-	__attribute__ ((unused)) static const char* BrightGreen  = "\u001b[32;1m";
-	__attribute__ ((unused)) static const char* BrightYellow = "\u001b[33;1m";
-	__attribute__ ((unused)) static const char* BrightBlue   = "\u001b[34;1m";
-	__attribute__ ((unused)) static const char* BrightPink   = "\u001b[35;1m";
-	__attribute__ ((unused)) static const char* BrightCyan   = "\u001b[36;1m";
-	__attribute__ ((unused)) static const char* BrightWhite  = "\u001b[37;1m";
-	__attribute__ ((unused)) static const char* Orange       = "\u001b[38;5;208m";
-	
-	__attribute__ ((unused)) static const char* Reset  = "\u001b[0m";
-}
-
 enum CommandType {
 	List,
 	Add,
@@ -97,6 +75,8 @@ inline std::istream &operator>>(std::istream &is, ListMode &x) {
   x = ListMode(tmp);
   return is;
 }
+
+TaskType parseTaskType(std::string &line);
 
 struct Command {
 	Command() : ct(CommandType::None) {
