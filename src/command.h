@@ -5,6 +5,7 @@
 #include <string>
 #include <ostream>
 #include <istream>
+#include <cstdint>
 
 class Todo;
 
