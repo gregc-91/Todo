@@ -116,9 +116,9 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-	printf("Command:\n  ");
+	if (DEBUG_PRINT) printf("Command:\n  ");
 	command.print();
-	printf("Inverse:\n  ");
+	if (DEBUG_PRINT) printf("Inverse:\n  ");
 	inverse.print();
 
     try {
@@ -137,5 +137,5 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    std::cout << "Success!" << std::endl;
+    if (DEBUG_PRINT) std::cout << "Success!" << std::endl;
 }

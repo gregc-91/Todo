@@ -7,6 +7,8 @@
 #include <istream>
 #include <cstdint>
 
+#define DEBUG_PRINT 0
+
 class Todo;
 
 enum CommandType {

@@ -7,6 +7,9 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <list>
+#include <set>
+#include <algorithm>
 
 const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"List",
@@ -37,7 +40,7 @@ std::string inline trimLeadingWhitespace(const std::string &str) {
 }
 
 std::string createTaskString(const char status, std::string line, std::string tag) {
-	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (" " + TAG_CHAR + tag));
+	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (std::string(1, TAG_CHAR) + tag));
 }
 
 bool isProject(const std::string &str, const std::string &project) {
@@ -51,7 +54,7 @@ bool containsTag(const std::string &str, const std::string &tag) {
 	std::stringstream stream(str);
 	std::string intermediate;
 	while(getline(stream, intermediate, ' ')) {
-		if (strcasecmp(intermediate.c_str(), ("" + TAG_CHAR + tag).c_str()) == 0)
+		if (strcasecmp(intermediate.c_str(), (std::string(1, TAG_CHAR) + tag).c_str()) == 0)
 			return true;
 	}
 	return false;
@@ -102,15 +105,28 @@ TaskType parseTaskType(std::string &line) {
 	}
 }
 
+std::set<std::string> getTags(std::string line) {
+	std::set<std::string> tags;
+	std::stringstream stream(line);
+	std::string intermediate;
+	while(getline(stream, intermediate, ' ')) {
+		if (intermediate.length() && intermediate[0] == TAG_CHAR) {
+			if (intermediate.length() > 1) tags.insert(intermediate);
+		}
+	}
+	return tags;
+}
+
 // Todo: convert this to using the Todo class
 static void executeListCommand(const Command command) {
-	printf("Executing list command.\n");
+	if (DEBUG_PRINT) printf("Executing list command.\n");
 
 	std::ifstream file("todo.txt");
 	
 	bool filterProject = command.list.project != "";
 	bool filterTag     = command.list.tag     != "";
 	bool filterStatus  = command.list.status  != '_';
+	std::set<std::string> tagsInFile;
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -126,6 +142,12 @@ static void executeListCommand(const Command command) {
 		}
 		
 		if (command.list.mode == ListMode::Projects && !isProject) {
+			continue;
+		}
+
+		if (command.list.mode == ListMode::Tags) {
+			std::set<std::string> tagsInLine;
+			tagsInFile.merge(getTags(trimmedLine));
 			continue;
 		}
 		
@@ -157,10 +179,16 @@ static void executeListCommand(const Command command) {
 		
 		std::cout << Colour::Reset;
 	}
+
+	if (command.list.mode == ListMode::Tags) {
+		for (auto tag : tagsInFile) {
+			std::cout << "  " << tag << std::endl;
+		}
+	}
 }
 
 static void executeAddCommand(Todo& todo, Command &command) {
-	printf("Executing add command.\n");
+	if (DEBUG_PRINT) printf("Executing add command.\n");
 	
 	std::string taskString = createTaskString('-', command.add.task, command.add.tag);
 	
@@ -168,17 +196,18 @@ static void executeAddCommand(Todo& todo, Command &command) {
 	
 	todo.addLine(command.add.index, taskString);
 	todo.commit();
+	todo.printLine(command.add.index);
 }
 
 static void executeRemoveCommand(Todo& todo, const Command command) {
-	printf("Executing remove command.\n");
+	if (DEBUG_PRINT) printf("Executing remove command.\n");
 	
 	todo.removeLine(command.remove.index);
 	todo.commit();
 }
 
 static void executeDooCommand(Todo& todo, const Command command) {
-	printf("Executing do command.\n");
+	if (DEBUG_PRINT) printf("Executing do command.\n");
 	
 	todo.setStatus(command.doo.index, command.doo.status);
 	todo.commit();
@@ -186,7 +215,7 @@ static void executeDooCommand(Todo& todo, const Command command) {
 }
 
 static void executeSetCommand(Todo& todo, const Command command) {
-	printf("Executing set command.\n");
+	if (DEBUG_PRINT) printf("Executing set command.\n");
 	
 	todo.setStatus(command.set.index, command.set.status);
 	todo.commit();
@@ -194,7 +223,7 @@ static void executeSetCommand(Todo& todo, const Command command) {
 }
 
 static void executeUndoCommand(Todo& todo, const Command command) {
-	printf("Executing undo command.\n");
+	if (DEBUG_PRINT) printf("Executing undo command.\n");
 	
 	Command previous;
 	Command inverse;
@@ -217,7 +246,7 @@ static void executeUndoCommand(Todo& todo, const Command command) {
 }
 
 static void executeTidyCommand(const Command /*command*/) {
-	printf("Executing tidy command.\n");
+	if (DEBUG_PRINT) printf("Executing tidy command.\n");
 }
 
 void executeCommand(Todo &todo, Command &command) {
@@ -300,7 +329,7 @@ char lineToStatus(const Todo &todo, uint32_t index)
 		throw std::runtime_error("Failed to parse task string");
 	}
 	
-	printf("Status for line %d: %c\n", index, todo.lines[index][start]);
+	if (DEBUG_PRINT) printf("Status for line %d: %c\n", index, todo.lines[index][start]);
 	return todo.lines[index][start];
 }
 
@@ -342,7 +371,6 @@ Command inverseCommand(const Todo &todo, const Command command)
 		{
 			Command inverse(CommandType::Set);
 			inverse.set.index = command.set.index;
-			printf("Index %d\n", command.set.index);
 			inverse.set.status = lineToStatus(todo, command.set.index);
 			return inverse;
 		} break;
@@ -499,6 +527,8 @@ bool Command::shouldUpdateHistory()
 
 void Command::print()
 {
+	if (!DEBUG_PRINT) return;
+
 	printf("{Type: %s, ", CommandStrings[ct]);
 	
 	switch (ct) {
