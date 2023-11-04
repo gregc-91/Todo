@@ -19,6 +19,7 @@ enum CommandType {
 	Set,
 	Undo,
 	Tidy,
+	Restore,
 	None,
 	CommandTypeSize
 };

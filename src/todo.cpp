@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <vector>
+#include <filesystem>
 
 const std::string whitespace = " \t\f\v\n\r";
 
@@ -88,6 +89,29 @@ void Todo::commit() {
 	std::ofstream file(filename);
 	for (auto &s : lines) {
 		file << s << std::endl;
+	}
+	file.close();
+}
+
+void Todo::backup() {
+	std::ofstream file(filename + ".bak");
+	for (auto &s : lines) {
+		file << s << std::endl;
+	}
+	file.close();
+}
+
+void Todo::restore() {
+
+	std::string backupFilename = filename + ".bak";
+	if (!std::filesystem::exists(backupFilename)) {
+		throw std::runtime_error("No backup file found");
+	}
+
+	lines.clear();
+	std::ifstream file(backupFilename);
+	for(std::string line; getline(file, line); ) {
+		lines.push_back(line);
 	}
 	file.close();
 }

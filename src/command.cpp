@@ -19,6 +19,7 @@ const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"Set",
 	"Undo",
 	"Tidy",
+	"Restore",
 	"None"
 };
 
@@ -73,7 +74,7 @@ bool hasStatus(const std::string &str, const char status) {
 	return false;
 }
 
-unsigned findLastOfProject(const Todo &todo, const std::string &project) {
+int findLastOfProject(const Todo &todo, const std::string &project) {
 	
 	if (project.empty())
 		return todo.lines.size();
@@ -88,8 +89,13 @@ unsigned findLastOfProject(const Todo &todo, const std::string &project) {
 		}
 		if (!line.empty()) lastNonEmpty = i;
 	}
-	
-	return todo.lines.size();
+
+	if (matchProject) {
+		return todo.lines.size();
+	}
+	else {
+		return -1;
+	}
 }
 
 TaskType parseTaskType(std::string &line) {
@@ -198,8 +204,18 @@ static void executeAddCommand(Todo& todo, Command &command) {
 	
 	std::string taskString = createTaskString('-', command.add.task, command.add.tag);
 	
-	command.add.index = findLastOfProject(todo, command.add.project);
-	
+	int index = findLastOfProject(todo, command.add.project);
+
+	if (index == -1) { // Project doesn't exist, add it first
+		// If the last last isn't blank, add one
+		if (!std::all_of(todo.lines.back().begin(),todo.lines.back().end(),isspace)) {
+			todo.addLine(todo.lines.size(), std::string(""));
+		}
+		todo.addLine(todo.lines.size(), std::string(1, PROJECT_CHAR) + command.add.project);
+		index = todo.lines.size();
+	}
+
+	command.add.index = index;
 	todo.addLine(command.add.index, taskString);
 	todo.commit();
 	todo.printLine(command.add.index);
@@ -240,8 +256,8 @@ static void executeUndoCommand(Todo& todo, const Command command) {
 		std::ifstream history_stream("history.txt");
 		previous.deserialise(history_stream);
 		inverse.deserialise(history_stream);
-	} catch (...) {
-        std::cout << "Command history error" << std::endl;
+	} catch (std::runtime_error& e) {
+        std::cout << "Command history error: " << e.what() << std::endl;
         exit(-1);
     }
 	
@@ -254,6 +270,8 @@ static void executeUndoCommand(Todo& todo, const Command command) {
 
 static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 	if (DEBUG_PRINT) printf("Executing tidy command.\n");
+
+	todo.backup();
 
 	for(size_t i = 1; i < todo.lines.size(); i++) {
 		// Remove duplicate blank lines
@@ -279,6 +297,10 @@ static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 		}
 	}
 
+	todo.commit();
+}
+static void executeRestoreCommand(Todo &todo, const Command /*command*/) {
+	todo.restore();
 	todo.commit();
 }
 
@@ -312,6 +334,10 @@ void executeCommand(Todo &todo, Command &command) {
 	case CommandType::Tidy:
 		{
 			executeTidyCommand(todo, command);
+		} break;
+	case CommandType::Restore:
+		{
+			executeRestoreCommand(todo, command);
 		} break;
 	default: break;
 	}
@@ -375,7 +401,8 @@ Command inverseCommand(const Todo &todo, const Command command)
 	// List : None
 	// Add  : Remove
 	// Doo  : Undo
-	// Tidy : None
+	// Set  : Set
+	// Tidy : Restore
 	
 	switch (command.type()) {
 	case CommandType::Add:
@@ -409,6 +436,11 @@ Command inverseCommand(const Todo &todo, const Command command)
 			Command inverse(CommandType::Set);
 			inverse.set.index = command.set.index;
 			inverse.set.status = lineToStatus(todo, command.set.index);
+			return inverse;
+		} break;
+	case CommandType::Tidy:
+		{
+			Command inverse(CommandType::Restore);
 			return inverse;
 		} break;
 	default: break;
@@ -544,6 +576,10 @@ void Command::deserialise(std::istream &is)
 	{
 		break;
 	}
+	case CommandType::Restore:
+	{
+		break;
+	}
 	default:	
 		throw std::runtime_error("Unexpected command type in command history deserialisation");
 	}
@@ -556,6 +592,7 @@ bool Command::shouldUpdateHistory()
 	case CommandType::Remove:
 	case CommandType::Doo:
 	case CommandType::Set:
+	case CommandType::Tidy:
 		return true;
 	default:
 		return false;
