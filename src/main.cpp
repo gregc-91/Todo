@@ -114,6 +114,9 @@ int main(int argc, char** argv)
     } catch (std::invalid_argument& e) {
         std::cout << "Parse error: " << e.what() << std::endl;
         exit(-1);
+    } catch (std::runtime_error& e) {
+        std::cout << "Error: " << e.what() << std::endl;
+        exit(-1);
     }
 
 	if (DEBUG_PRINT) printf("Command:\n  ");

@@ -43,6 +43,12 @@ std::string createTaskString(const char status, std::string line, std::string ta
 	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (std::string(1, TAG_CHAR) + tag));
 }
 
+bool isAnyProject(const std::string &str) {
+	std::string trimmedLine = trimLeadingWhitespace(str);
+	bool isProject = trimmedLine.front() == PROJECT_CHAR;
+	return isProject;
+}
+
 bool isProject(const std::string &str, const std::string &project) {
 	std::string line = trimLeadingWhitespace(str);
 	if (line.front() != PROJECT_CHAR) return false;
@@ -202,6 +208,7 @@ static void executeAddCommand(Todo& todo, Command &command) {
 static void executeRemoveCommand(Todo& todo, const Command command) {
 	if (DEBUG_PRINT) printf("Executing remove command.\n");
 	
+	todo.printLine(command.remove.index);
 	todo.removeLine(command.remove.index);
 	todo.commit();
 }
@@ -245,8 +252,34 @@ static void executeUndoCommand(Todo& todo, const Command command) {
 	executeCommand(todo, inverse);
 }
 
-static void executeTidyCommand(const Command /*command*/) {
+static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 	if (DEBUG_PRINT) printf("Executing tidy command.\n");
+
+	for(size_t i = 1; i < todo.lines.size(); i++) {
+		// Remove duplicate blank lines
+		if (std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) && 
+			std::all_of(todo.lines[i].begin(),todo.lines[i].end(),isspace)) {
+			todo.removeLine(i--);
+			continue;
+		}
+
+		// Remove blank lines which aren't immediately before a project
+		if (std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) &&
+			!isAnyProject(todo.lines[i])) {
+			todo.removeLine(--i);
+			continue;
+		}
+	}
+
+	// Add a blank line before a project
+	for(size_t i = 1; i < todo.lines.size(); i++) {
+		if (!std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) &&
+			isAnyProject(todo.lines[i])) {
+			todo.addLine(i, "");
+		}
+	}
+
+	todo.commit();
 }
 
 void executeCommand(Todo &todo, Command &command) {
@@ -278,7 +311,7 @@ void executeCommand(Todo &todo, Command &command) {
 		} break;
 	case CommandType::Tidy:
 		{
-			executeTidyCommand(/*todo,*/ command);
+			executeTidyCommand(todo, command);
 		} break;
 	default: break;
 	}
@@ -287,6 +320,10 @@ void executeCommand(Todo &todo, Command &command) {
 // Todo: check these
 std::string lineToProject(const Todo &todo, uint32_t index)
 {
+	if (index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+
 	for (int i = index; i >= 0; i--) {
 		if (todo.lines[i].front() == PROJECT_CHAR) {
 			return trimLeadingWhitespace(todo.lines[i]).substr(1);
