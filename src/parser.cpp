@@ -36,16 +36,20 @@ void parseListCommand(int argc, char** argv, Command& command)
                 break;
             case TAG_CHAR:
                 if (argv[i][1] != '\0') {
-                    if (command.list.tag != "") throw std::runtime_error("Duplicate tag");
-                    command.list.tag = std::string(argv[i] + 1);
+                    command.list.tags.insert(std::string(argv[i] + 1));
                 } else {
                     command.list.mode = ListMode::Tags;
                 }
                 break;
             case '[':
-                command.list.status = argv[i][1];
-                if (argv[i][1] == '\0') throw std::runtime_error("Invalid status");
-                if (argv[i][2] != ']') throw std::runtime_error("Invalid status");
+                {
+                    if (argv[i][1] == '\0') throw std::runtime_error("Invalid status");
+                    int j = 1;
+                    while (argv[i][j] != '\0' && argv[i][j] != ']') {
+                        validateStatus(argv[i][j]);
+                        command.list.statuses.insert(argv[i][j++]);
+                    }
+                }
                 break;
             default:
                 throw std::runtime_error("Unknown list subcommand");

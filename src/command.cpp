@@ -67,9 +67,23 @@ bool containsTag(const std::string &str, const std::string &tag) {
 	return false;
 }
 
+bool containsTagFromSet(const std::string &str, const std::set<std::string> &tags) {
+	for (auto tag: tags) {
+		if (containsTag(str, tag)) return true;
+	}
+	return false;
+}
+
 bool hasStatus(const std::string &str, const char status) {
 	if (str.size() >= 3 && str[0] == '[' && str[1] == status && str[2] == ']') {
 		return true;
+	}
+	return false;
+}
+
+bool hasStatusFromSet(const std::string &str, const std::set<char> &statuses) {
+	for (auto status : statuses) {
+		if (hasStatus(str, status)) return true;
 	}
 	return false;
 }
@@ -136,8 +150,8 @@ static void executeListCommand(const Command command) {
 	std::ifstream file("todo.txt");
 	
 	bool filterProject = command.list.project != "";
-	bool filterTag     = command.list.tag     != "";
-	bool filterStatus  = command.list.status  != '_';
+	bool filterTag     = !command.list.tags.empty();
+	bool filterStatus  = !command.list.statuses.empty();
 	std::set<std::string> tagsInFile;
 
 	unsigned lineNo = 0;
@@ -167,11 +181,11 @@ static void executeListCommand(const Command command) {
 			continue;
 		}
 		
-		if (filterTag && !containsTag(trimmedLine, command.list.tag)) {
+		if (filterTag && !containsTagFromSet(trimmedLine, command.list.tags)) {
 			continue;
 		}
 		
-		if (filterStatus && !hasStatus(trimmedLine, command.list.status)) {
+		if (filterStatus && !hasStatusFromSet(trimmedLine, command.list.statuses)) {
 			continue;
 		}
 		
@@ -449,11 +463,28 @@ Command inverseCommand(const Todo &todo, const Command command)
 	return Command();
 }
 
-void serialise_string(std::ostream &os, std::string &str)
+void serialise_string(std::ostream &os, const std::string &str)
 {
 	os << str.length() << ',';
 	if (str.length()) {
 		os << str;
+	}
+	os << ',';
+}
+
+void serialise_set(std::ostream &os, std::set<std::string> &set)
+{
+	os << set.size() << ',';
+	for (auto &str : set) {
+		serialise_string(os, str);
+	}
+}
+
+void serialise_set(std::ostream &os, std::set<char> &set)
+{
+	os << set.size() << ',';
+	for (auto &chr : set) {
+		os << chr;
 	}
 	os << ',';
 }
@@ -470,6 +501,30 @@ void deserialise_string(std::istream &is, std::string &str)
 	is >> junk;
 }
 
+void deserialise_set(std::istream &is, std::set<std::string> &set)
+{
+	size_t length;
+	char junk;
+	is >> length >> junk;
+	for (unsigned i = 0; i < length; i++) {
+		std::string str;
+		deserialise_string(is, str);
+		set.insert(str);
+	}
+}
+
+void deserialise_set(std::istream &is, std::set<char> &set)
+{
+	size_t length;
+	char junk;
+	is >> length >> junk;
+	for (unsigned i = 0; i < length; i++) {
+		is >> std::noskipws >> junk;
+		set.insert(junk);
+	}
+	is >> junk;
+}
+
 void Command::serialise(std::ostream &os) 
 {
 	os << ct << ',';
@@ -479,8 +534,8 @@ void Command::serialise(std::ostream &os)
 	{
 		os << list.mode << ',';
 		serialise_string(os, list.project);
-		serialise_string(os, list.tag);
-		os << list.status << ',';
+		serialise_set(os, list.tags);
+		serialise_set(os, list.statuses);
 		break;
 	}
 	case CommandType::Add:
@@ -531,9 +586,10 @@ void Command::deserialise(std::istream &is)
 		is >> list.mode >> tmp;
 		new (&list.project) std::string();
 		deserialise_string(is, list.project);
-		new (&list.tag) std::string();
-		deserialise_string(is, list.tag);
-		is >> list.status >> tmp;
+		new (&list.tags) std::set<std::string>();
+		deserialise_set(is, list.tags);
+		new (&list.statuses) std::set<char>();
+		deserialise_set(is, list.statuses);
 		break;
 	}
 	case CommandType::Add:
@@ -610,8 +666,12 @@ void Command::print()
 	{
 		printf("Mode: %d, ", list.mode);
 		printf("Project: %s, ", list.project.c_str());
-		printf("Tag: %s, ", list.tag.c_str());
-		printf("Status: [%c]}\n", list.status);
+		printf("Tags: {");
+		for (auto tag : list.tags) printf("%s, ", tag.c_str());
+		printf("}, ");
+		printf("Statuses: [");
+		for (auto status : list.statuses) printf("%c", status);
+		printf("]\n");
 		break;
 	}
 	case CommandType::Add:

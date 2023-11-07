@@ -6,6 +6,7 @@
 #include <ostream>
 #include <istream>
 #include <cstdint>
+#include <set>
 
 #define DEBUG_PRINT 0
 
@@ -92,9 +93,9 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = ListMode::Tasks;
-			list.status = '_';
+			new (&list.statuses)std::set<char>();
 			new (&list.project) std::string();
-			new (&list.tag)     std::string();
+			new (&list.tags)    std::set<std::string>();
 			break;
 		case CommandType::Add:
 			add.index = 0;
@@ -126,9 +127,9 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
-			list.status = other.list.status;
+			new (&list.statuses)std::set(other.list.statuses);
 			new (&list.project) std::string(other.list.project);
-			new (&list.tag)     std::string(other.list.tag);
+			new (&list.tags)    std::set(other.list.tags);
 			break;
 		case CommandType::Add:
 			add.index = other.add.index;
@@ -160,9 +161,9 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
-			list.status = other.list.status;
+			new (&list.statuses) std::set(other.list.statuses);
 			new (&list.project) std::string(other.list.project);
-			new (&list.tag)     std::string(other.list.tag);
+			new (&list.tags)    std::set(other.list.tags);
 			break;
 		case CommandType::Add:
 			add.index = other.add.index;
@@ -196,8 +197,9 @@ struct Command {
 		
 		switch (ct) {
 		case CommandType::List:
+			list.statuses.~set();
 			list.project.~string();
-			list.tag.~string();
+			list.tags.~set();
 			break;
 		case CommandType::Add:
 			add.project.~string();
@@ -228,8 +230,8 @@ struct Command {
 		struct {
 			ListMode mode;
 			std::string project;
-			std::string tag;
-			char status;
+			std::set<std::string> tags;
+			std::set<char> statuses;
 		} list;
 		
 		struct {
