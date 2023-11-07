@@ -143,6 +143,40 @@ std::set<std::string> getTags(std::string line) {
 	return tags;
 }
 
+struct Line {
+	std::string line;
+	uint32_t no;
+};
+
+struct Project {
+	std::string name;
+	uint32_t no;
+	std::vector<Line> lines;
+};
+
+void printLine(std::string line, uint32_t lineNo) {
+
+	std::string trimmedLine = trimLeadingWhitespace(line);
+	bool isProject = trimmedLine.front() == PROJECT_CHAR;
+	bool isTask    = trimmedLine.front() == '[';
+
+	std::cout << Colour::BrightBlack << std::setw(4) << lineNo << ":  " << Colour::Reset;
+		
+	if (isProject) {
+		std::cout << Colour::BrightWhite;
+	} else if (isTask) {
+		TaskType taskType = parseTaskType(trimmedLine);
+		
+		std::cout << TaskColours[taskType];
+		
+		//line = line.subtr(3);
+	}
+	
+	std::cout << line << std::endl;
+	
+	std::cout << Colour::Reset;
+};
+
 // Todo: convert this to using the Todo class
 static void executeListCommand(const Command command) {
 	if (DEBUG_PRINT) printf("Executing list command.\n");
@@ -153,6 +187,7 @@ static void executeListCommand(const Command command) {
 	bool filterTag     = !command.list.tags.empty();
 	bool filterStatus  = !command.list.statuses.empty();
 	std::set<std::string> tagsInFile;
+	std::vector<Project> projects;
 
 	unsigned lineNo = 0;
 	std::string projectName = "";
@@ -160,11 +195,12 @@ static void executeListCommand(const Command command) {
 
 		std::string trimmedLine = trimLeadingWhitespace(line);
 		bool isProject = trimmedLine.front() == PROJECT_CHAR;
-		bool isTask    = trimmedLine.front() == '[';
 		
 		if (isProject) {
 			std::stringstream lineStream(trimLeadingWhitespace(trimmedLine.substr(1))); 
 			std::getline(lineStream, projectName, ' ');
+
+			projects.push_back({trimmedLine.substr(1), lineNo, std::vector<Line>()});
 		}
 		
 		if (command.list.mode == ListMode::Projects && !isProject) {
@@ -189,26 +225,45 @@ static void executeListCommand(const Command command) {
 			continue;
 		}
 		
-		std::cout << Colour::BrightBlack << std::setw(4) << lineNo << ":  " << Colour::Reset;
-		
-		if (isProject) {
-			std::cout << Colour::BrightWhite;
-		} else if (isTask) {
-			TaskType taskType = parseTaskType(trimmedLine);
-			
-			std::cout << TaskColours[taskType];
-			
-			//line = line.subtr(3);
+		// Create a dummy project if we have yet to see one
+		if (projects.empty()) {
+			projects.push_back({std::string(""), lineNo, std::vector<Line>()});
 		}
-		
-		std::cout << line << std::endl;
-		
-		std::cout << Colour::Reset;
+		projects.back().lines.push_back({line, lineNo});
 	}
+
+	// Remove empty projects
+	projects.erase(std::remove_if(
+			projects.begin(), projects.end(), [](const Project& p) { return p.lines.empty(); }
+		), projects.end()
+	);
 
 	if (command.list.mode == ListMode::Tags) {
 		for (auto tag : tagsInFile) {
 			std::cout << "  " << tag << std::endl;
+		}
+	} else {
+		bool printProjectName = 
+			command.list.mode == ListMode::Projects ||
+			(command.list.mode == ListMode::Tasks && (filterTag || filterStatus));
+
+		size_t i = 0;
+		for (auto &project : projects) {
+			if (project.lines.empty()) 
+				continue;
+
+			if (printProjectName) {
+				printLine(std::string("+") + project.name, project.no);
+			}
+
+			for (auto &line : project.lines) {
+				printLine(line.line, line.no);
+			}
+
+			if (printProjectName && i < projects.size()-1) {
+				std::cout << std::endl;
+			}
+			i++;
 		}
 	}
 }

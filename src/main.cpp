@@ -140,5 +140,5 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
-    if (DEBUG_PRINT) std::cout << "Success!" << std::endl;
+    if (DEBUG_PRINT) {std::cout << "Success!" << std::endl;}
 }
