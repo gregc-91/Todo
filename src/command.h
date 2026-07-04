@@ -96,6 +96,8 @@ struct AddCommand {
 	std::string tag;
 	std::string task;
 	uint32_t index = 0;
+	uint32_t parentIndex = 0;
+	bool hasParent = false;
 };
 
 struct RemoveCommand {
@@ -109,11 +111,13 @@ struct DoCommand {
 	std::string tag;
 	uint32_t index = 0;
 	char status = 'x';
+	bool tree = false;
 };
 
 struct SetCommand {
 	uint32_t index = 0;
 	char status = 'x';
+	bool tree = false;
 };
 
 struct RestoreCommand {

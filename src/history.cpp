@@ -8,7 +8,7 @@
 #include <stdexcept>
 
 namespace {
-const char *historyFormat = "TODO_HISTORY_V2";
+const char *historyFormat = "TODO_HISTORY_V3";
 }
 
 History::History(const std::string &filename) :

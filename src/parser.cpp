@@ -158,7 +158,17 @@ void parseAddCommand(int argc, char **argv, Command &command)
 			throw std::invalid_argument("empty add argument");
 		}
 
-		if (argument.front() == PROJECT_ARGUMENT_CHAR) {
+		if (equalsIgnoreCase(argument, "--under")) {
+			if (command.add.hasParent) {
+				throw std::invalid_argument("duplicate --under option");
+			}
+			if (i + 1 >= argc) {
+				throw std::invalid_argument(
+					"--under requires a parent line number");
+			}
+			command.add.parentIndex = parseLineNumber(argv[++i]);
+			command.add.hasParent = true;
+		} else if (argument.front() == PROJECT_ARGUMENT_CHAR) {
 			if (argument.size() == 1) {
 				throw std::invalid_argument("project name is missing");
 			}
@@ -185,6 +195,10 @@ void parseAddCommand(int argc, char **argv, Command &command)
 
 	if (command.add.task.empty()) {
 		throw std::invalid_argument("task text is missing");
+	}
+	if (command.add.hasParent && !command.add.project.empty()) {
+		throw std::invalid_argument(
+			"--under cannot be combined with a project; the parent determines it");
 	}
 }
 
@@ -221,13 +235,33 @@ Command parseCommand(int argc, char **argv)
 		command.remove.index = parseLineNumber(arguments[0]);
 		break;
 	case CommandType::Doo:
-		requireArgumentCount("do", argumentCount, 1);
+		if (argumentCount != 1 && argumentCount != 2) {
+			throw std::invalid_argument(
+				"do expects <line> followed by optional --tree");
+		}
 		command.doo.index = parseLineNumber(arguments[0]);
+		if (argumentCount == 2) {
+			if (!equalsIgnoreCase(arguments[1], "--tree")) {
+				throw std::invalid_argument(
+					"unknown do option '" + std::string(arguments[1]) + "'");
+			}
+			command.doo.tree = true;
+		}
 		break;
 	case CommandType::Set:
-		requireArgumentCount("set", argumentCount, 2);
+		if (argumentCount != 2 && argumentCount != 3) {
+			throw std::invalid_argument(
+				"set expects <status> <line> followed by optional --tree");
+		}
 		command.set.status = parseStatus(arguments[0]);
 		command.set.index = parseLineNumber(arguments[1]);
+		if (argumentCount == 3) {
+			if (!equalsIgnoreCase(arguments[2], "--tree")) {
+				throw std::invalid_argument(
+					"unknown set option '" + std::string(arguments[2]) + "'");
+			}
+			command.set.tree = true;
+		}
 		break;
 	case CommandType::Undo:
 		requireArgumentCount("undo", argumentCount, 0);

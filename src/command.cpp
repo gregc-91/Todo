@@ -2,6 +2,7 @@
 #include "command.h"
 
 #include "colour.h"
+#include "hierarchy.h"
 #include "history.h"
 #include "todo.h"
 #include "utility.h"
@@ -202,6 +203,9 @@ bool projectMatches(const Project &project, const Command &command)
 
 bool lineMatches(const std::string &line, const Command &command)
 {
+	if (!isTaskLine(line)) {
+		return false;
+	}
 	if (!command.list.tags.empty() &&
 		!containsTagFromSet(line, command.list.tags)) {
 		return false;
@@ -263,6 +267,9 @@ static void executeListCommand(const Todo &todo, const Command &command) {
 				continue;
 			}
 			for (const Line &line : project.lines) {
+				if (!isTaskLine(line.line)) {
+					continue;
+				}
 				if (filterStatus &&
 					!hasStatusFromSet(trimLeadingWhitespace(line.line),
 						command.list.statuses)) {
@@ -289,10 +296,25 @@ static void executeListCommand(const Todo &todo, const Command &command) {
 			continue;
 		}
 
+		std::set<uint32_t> visibleLines;
+		if (filterTag || filterStatus) {
+			validateHierarchy(todo.lines);
+			for (const Line &line : project.lines) {
+				if (!lineMatches(line.line, command)) {
+					continue;
+				}
+				visibleLines.insert(line.no);
+				for (std::size_t ancestor :
+					ancestorTaskIndices(todo.lines, line.no)) {
+					visibleLines.insert(static_cast<uint32_t>(ancestor));
+				}
+			}
+		}
+
 		std::vector<Line> matchingLines;
 		for (const Line &line : project.lines) {
 			if ((!filterTag && !filterStatus) ||
-				lineMatches(line.line, command)) {
+				visibleLines.find(line.no) != visibleLines.end()) {
 				matchingLines.push_back(line);
 			}
 		}
@@ -311,9 +333,29 @@ static void executeListCommand(const Todo &todo, const Command &command) {
 
 static void executeAddCommand(Todo& todo, Command &command) {
 	if (DEBUG_PRINT) printf("Executing add command.\n");
-	
+
 	std::string taskString = createTaskString('-', command.add.task, command.add.tag);
-	
+
+	if (command.add.hasParent) {
+		validateHierarchy(todo.lines);
+		if (command.add.parentIndex >= todo.lines.size()) {
+			throw std::runtime_error("Parent index out of bounds");
+		}
+		if (!isTaskLine(todo.lines[command.add.parentIndex])) {
+			throw std::runtime_error("Parent line is not a task");
+		}
+
+		const std::size_t depth =
+			taskDepth(todo.lines[command.add.parentIndex]) + 1;
+		taskString.insert(0, depth * TASK_INDENT_WIDTH, ' ');
+		command.add.index = static_cast<uint32_t>(
+			subtreeEnd(todo.lines, command.add.parentIndex));
+		todo.addLine(command.add.index, taskString);
+		todo.commit();
+		todo.printLine(command.add.index);
+		return;
+	}
+
 	int index = findLastOfProject(todo, command.add.project);
 
 	if (index == -1) { // Project doesn't exist, add it first
@@ -333,24 +375,63 @@ static void executeAddCommand(Todo& todo, Command &command) {
 
 static void executeRemoveCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing remove command.\n");
-	
+
+	validateHierarchy(todo.lines);
+	if (command.remove.index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+	if (!isTaskLine(todo.lines[command.remove.index])) {
+		throw std::runtime_error("Line is not a task");
+	}
+
+	const std::size_t end = subtreeEnd(todo.lines, command.remove.index);
 	todo.printLine(command.remove.index);
-	todo.removeLine(command.remove.index);
+	todo.removeLines(command.remove.index, end);
 	todo.commit();
 }
 
 static void executeDooCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing do command.\n");
-	
-	todo.setStatus(command.doo.index, command.doo.status);
+
+	validateHierarchy(todo.lines);
+	if (command.doo.index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+	if (!isTaskLine(todo.lines[command.doo.index])) {
+		throw std::runtime_error("Line is not a task");
+	}
+
+	const std::size_t end = command.doo.tree
+		? subtreeEnd(todo.lines, command.doo.index)
+		: command.doo.index + 1;
+	for (std::size_t i = command.doo.index; i < end; ++i) {
+		if (isTaskLine(todo.lines[i])) {
+			todo.setStatus(i, command.doo.status);
+		}
+	}
 	todo.commit();
 	todo.printLine(command.doo.index);
 }
 
 static void executeSetCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing set command.\n");
-	
-	todo.setStatus(command.set.index, command.set.status);
+
+	validateHierarchy(todo.lines);
+	if (command.set.index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+	if (!isTaskLine(todo.lines[command.set.index])) {
+		throw std::runtime_error("Line is not a task");
+	}
+
+	const std::size_t end = command.set.tree
+		? subtreeEnd(todo.lines, command.set.index)
+		: command.set.index + 1;
+	for (std::size_t i = command.set.index; i < end; ++i) {
+		if (isTaskLine(todo.lines[i])) {
+			todo.setStatus(i, command.set.status);
+		}
+	}
 	todo.commit();
 	todo.printLine(command.set.index);
 }
@@ -378,6 +459,8 @@ static void executeUndoCommand(Todo& todo, const Command &) {
 
 static void executeTidyCommand(Todo &todo, const Command &) {
 	if (DEBUG_PRINT) printf("Executing tidy command.\n");
+
+	validateHierarchy(todo.lines);
 
 	for(size_t i = 1; i < todo.lines.size(); i++) {
 		// Remove duplicate blank lines
@@ -574,6 +657,8 @@ void Command::serialise(std::ostream &os) const
 		serialise_string(os, add.tag);
 		serialise_string(os, add.task);
 		os << add.index << ',';
+		os << add.parentIndex << ',';
+		os << add.hasParent << ',';
 		break;
 	}
 	case CommandType::Remove:
@@ -589,12 +674,14 @@ void Command::serialise(std::ostream &os) const
 		serialise_string(os, doo.tag);
 		os << doo.index << ',';
 		os << doo.status << ',';
+		os << doo.tree << ',';
 		break;
 	}
 	case CommandType::Set:
 	{
 		os << set.index << ',';
 		os << set.status << ',';
+		os << set.tree << ',';
 		break;
 	}
 	case CommandType::Tidy:
@@ -640,6 +727,8 @@ void Command::deserialise(std::istream &is)
 		deserialise_string(is, add.tag);
 		deserialise_string(is, add.task);
 		deserialise_value(is, add.index);
+		deserialise_value(is, add.parentIndex);
+		deserialise_value(is, add.hasParent);
 		break;
 	}
 	case CommandType::Remove:
@@ -657,6 +746,7 @@ void Command::deserialise(std::istream &is)
 		deserialise_string(is, doo.tag);
 		deserialise_value(is, doo.index);
 		deserialise_value(is, doo.status);
+		deserialise_value(is, doo.tree);
 		break;
 	}
 	case CommandType::Set:
@@ -664,6 +754,7 @@ void Command::deserialise(std::istream &is)
 		set = SetCommand();
 		deserialise_value(is, set.index);
 		deserialise_value(is, set.status);
+		deserialise_value(is, set.tree);
 		break;
 	}
 	case CommandType::Tidy:

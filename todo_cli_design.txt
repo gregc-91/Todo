@@ -28,12 +28,15 @@ todo <command>
 			with status
 	add
 		[+Project] [@Tag] "Task"
+		--under <index> [@Tag] "Task"
+		Adds a subtask beneath an existing task
 	remove
 		<index>
+		Removes the task and its complete subtask tree
 	do
-		<index>
+		<index> [--tree]
 	set
-		<status> <index>
+		<status> <index> [--tree]
 		Sets a task to any supported status
 		
 	undo
@@ -43,6 +46,9 @@ todo <command>
 
 Projects are entered as +Project in terminal commands. The + is not part of
 the project name; project headings are stored as "# Project" in todo.txt.
+
+Tasks and subtasks use the same [status] notation. Each subtask level is
+indented by two spaces. Filtered lists include ancestor tasks for context.
 	
 //todo: how to do hierarchical adding of notes?
 

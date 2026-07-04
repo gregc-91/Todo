@@ -38,11 +38,18 @@ void Todo::addLine(unsigned index, const std::string &line) {
 }
 
 void Todo::removeLine(unsigned index) {
-	
+
 	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
-	
+
 	lines.erase(lines.begin() + index);
+}
+
+void Todo::removeLines(unsigned first, unsigned last) {
+	if (first > last || last > lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+	lines.erase(lines.begin() + first, lines.begin() + last);
 }
 
 void Todo::setStatus(unsigned index, char status) {
@@ -68,18 +75,18 @@ void Todo::printLine(unsigned index) {
 	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
 
-	std::string line = lines[index];
-
-	line = trimLeadingWhitespace(line);
-	bool isProject = !line.empty() && line.front() == PROJECT_FILE_CHAR;
-	bool isTask = !line.empty() && line.front() == '[';
+	const std::string &line = lines[index];
+	const std::string trimmedLine = trimLeadingWhitespace(line);
+	bool isProject = !trimmedLine.empty() &&
+		trimmedLine.front() == PROJECT_FILE_CHAR;
+	bool isTask = !trimmedLine.empty() && trimmedLine.front() == '[';
 
 	std::cout << Colour::BrightBlack << std::setw(4) << index << ":  " << Colour::Reset;
 	
 	if (isProject) {
 		std::cout << Colour::BrightWhite;
 	} else if (isTask) {
-		TaskType taskType = parseTaskType(line);
+		TaskType taskType = parseTaskType(trimmedLine);
 		
 		std::cout << TaskColours[taskType];
 	}

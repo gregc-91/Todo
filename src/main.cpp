@@ -30,21 +30,25 @@ void usage()
 		<< "              [<Status...>]                                       with status\n"
 		<< "\n"
 		<< "      add     [+Project] [@Tag] \"Task\" : adds a task with optional project and tag\n"
+		<< "              --under <line> [@Tag] \"Task\"                        as a subtask\n"
 		<< "\n"
-		<< "      remove  <line>                   : removes the given zero-based line\n"
+		<< "      remove  <line>                   : removes a task and all its subtasks\n"
 		<< "\n"
 		<< "      do      <line>                   : marks the task on the given line as done\n"
+		<< "              <line> --tree                                      including subtasks\n"
 		<< "\n"
 		<< "      set     <Status> <line>          : sets the status on the given line\n"
+		<< "              <Status> <line> --tree                              including subtasks\n"
 		<< "\n"
 		<< "      undo                             : undoes the last action\n"
 		<< "\n"
-		<< "      tidy                             : normalizes blank lines between projects\n"
+		<< "      tidy                             : validates hierarchy and normalizes blank lines\n"
 		<< "\n"
 		<< "    <Status>: - active, ! urgent, ^ high, v low, x done,\n"
 		<< "              ~ suspended, . terminated\n"
 		<< "\n"
-		<< "    Use +Project in commands; projects are stored as \"# Project\" in todo.txt.\n";
+		<< "    Use +Project in commands; projects are stored as \"# Project\" in todo.txt.\n"
+		<< "    Subtasks use the same status notation, indented by two spaces per level.\n";
 }
 }
 

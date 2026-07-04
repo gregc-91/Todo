@@ -14,6 +14,7 @@ public:
 	
 	void addLine(unsigned index, const std::string &line);
 	void removeLine(unsigned index);
+	void removeLines(unsigned first, unsigned last);
 	void setStatus(unsigned index, char status);
 	void print();
 	void printLine(unsigned index);
