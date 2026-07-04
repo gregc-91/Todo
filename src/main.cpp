@@ -1,97 +1,93 @@
-
-#include <assert.h>
-#include <stdint.h>
-#include <string.h>
-#include <ctime>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <fstream>
 #include <iostream>
-#include <string>
+#include <stdexcept>
 
 #include "command.h"
-#include "todo.h"
-#include "parser.h"
 #include "console.h"
+#include "parser.h"
+#include "todo.h"
 
+namespace {
 void usage()
 {
-    printf("usage: \n");
-    printf("  todo [-h | --help] <command> [<subcommand...>]                                  \n");
-    printf("    <command> :                                                                   \n");
-    printf("      list                             : lists all the tasks...   in a file       \n");
-    printf("              %c<Project>                                          in a project   \n", PROJECT_CHAR);
-    printf("              %c<Tag>                                              with tag       \n", TAG_CHAR);
-    printf("              [<Status>]                                          with status     \n");
-    printf("      list %c                           : list all the projects... in a file      \n", PROJECT_CHAR);
-    printf("              %c<Tag>                                              with tag       \n", TAG_CHAR);
-    printf("              [<Status>]                                          with status     \n");
-    printf("      list %c                           : list all the tags...     in a file      \n", TAG_CHAR);
-    printf("              %c<Project>                                          in a project   \n", PROJECT_CHAR);
-    printf("              [<Status>]                                          with status     \n");
-    printf("                                                                                  \n");
-    printf("      add     [%cProject] [%cTag] 'Task' : adds a task with optional project and tag\n", PROJECT_CHAR, TAG_CHAR);
-    printf("                                                                                  \n");
-    printf("      remove  <line>                   : removes a task from the given line       \n");
-    printf("                                                                                  \n");
-    printf("      do      <line>                   : marks task on given line as done         \n");
-    printf("                                                                                  \n");
-    printf("      set     <Status> <line>          : set the status on the given line         \n");
-    printf("                                                                                  \n");
-    printf("      undo                             : un-does the last action                  \n");
-    printf("                                                                                  \n");
-    printf("      tidy                             : Formats the todo.txt file:               \n");
-    printf("                                         - Removes excess lines                   \n");
-    printf("                                         - Fixes indentation and whitespace       \n");
-    printf("                                         - Checks for syntax errors               \n");
-    printf("                                         - Moves non-active tasks to done.txt     \n");
+	std::cout
+		<< "usage:\n"
+		<< "  todo [-h | --help] <command> [<subcommand...>]\n"
+		<< "    <command>:\n"
+		<< "      list                             : lists all the tasks...   in a file\n"
+		<< "              +<Project>                                          in a project\n"
+		<< "              @<Tag>                                              with tag\n"
+		<< "              [<Status...>]                                       with status\n"
+		<< "      list +                           : lists all the projects... in a file\n"
+		<< "              +<Project>                                          matching a project\n"
+		<< "              @<Tag>                                              containing tag\n"
+		<< "              [<Status...>]                                       containing status\n"
+		<< "      list @                           : lists all the tags...     in a file\n"
+		<< "              +<Project>                                          in a project\n"
+		<< "              [<Status...>]                                       with status\n"
+		<< "\n"
+		<< "      add     [+Project] [@Tag] \"Task\" : adds a task with optional project and tag\n"
+		<< "\n"
+		<< "      remove  <line>                   : removes the given zero-based line\n"
+		<< "\n"
+		<< "      do      <line>                   : marks the task on the given line as done\n"
+		<< "\n"
+		<< "      set     <Status> <line>          : sets the status on the given line\n"
+		<< "\n"
+		<< "      undo                             : undoes the last action\n"
+		<< "\n"
+		<< "      tidy                             : normalizes blank lines between projects\n"
+		<< "\n"
+		<< "    <Status>: - active, ! urgent, ^ high, v low, x done,\n"
+		<< "              ~ suspended, . terminated\n"
+		<< "\n"
+		<< "    Use +Project in commands; projects are stored as \"# Project\" in todo.txt.\n";
+}
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
-    Console::setup();
-    std::atexit(Console::restore);
+	Console::setup();
+	std::atexit(Console::restore);
 
-    if (argc > 1 &&
-        (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
-        usage();
-        exit(0);
-    }
+	if (argc > 1 &&
+		(std::strcmp(argv[1], "-h") == 0 ||
+		 std::strcmp(argv[1], "--help") == 0)) {
+		usage();
+		return EXIT_SUCCESS;
+	}
 
-	Todo todo("todo.txt");
-    Command command;
-	Command inverse;
-	
-    try {
-        command = parseCommand(argc, argv);
-		inverse = inverseCommand(todo, command);
-    } catch (std::invalid_argument& e) {
-        std::cout << "Parse error: " << e.what() << std::endl;
-        exit(-1);
-    } catch (std::runtime_error& e) {
-        std::cout << "Error: " << e.what() << std::endl;
-        exit(-1);
-    }
+	try {
+		Todo todo("todo.txt");
+		Command command = parseCommand(argc, argv);
+		Command inverse = inverseCommand(todo, command);
 
-	if (DEBUG_PRINT) printf("Command:\n  ");
-	command.print();
-	if (DEBUG_PRINT) printf("Inverse:\n  ");
-	inverse.print();
+		command.print();
+		inverse.print();
+		executeCommand(todo, command);
 
-    try {
-        executeCommand(todo, command);
-		
 		if (command.shouldUpdateHistory()) {
-			// Update the history file so it can be undone
-			std::ofstream history_stream("history.txt");
-			command.serialise(history_stream);
-			inverse.serialise(history_stream);
-			history_stream.close();
+			std::ofstream historyStream("history.txt");
+			if (!historyStream) {
+				throw std::runtime_error(
+					"unable to open command history for writing");
+			}
+			command.serialise(historyStream);
+			inverse.serialise(historyStream);
+			if (!historyStream) {
+				throw std::runtime_error("failed while writing command history");
+			}
 		}
-    } catch (...) {
-        // Todo: handle execution execeptions
-        std::cout << "Execution error" << std::endl;
-        exit(-1);
-    }
+	} catch (const std::exception &error) {
+		std::cerr << "Error: " << error.what() << '\n';
+		return EXIT_FAILURE;
+	} catch (...) {
+		std::cerr << "Error: unexpected failure\n";
+		return EXIT_FAILURE;
+	}
 
-    if (DEBUG_PRINT) {std::cout << "Success!" << std::endl;}
+	return EXIT_SUCCESS;
 }

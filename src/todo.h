@@ -1,11 +1,12 @@
-#ifndef __TODO_H__
-#define __TODO_H__
+#ifndef TODO_TODO_H
+#define TODO_TODO_H
 
 #include <string>
 #include <vector>
 
-#define PROJECT_CHAR '+'
-#define TAG_CHAR '@'
+constexpr char PROJECT_ARGUMENT_CHAR = '+';
+constexpr char PROJECT_FILE_CHAR = '#';
+constexpr char TAG_CHAR = '@';
 
 class Todo {
 public:

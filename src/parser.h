@@ -1,17 +1,8 @@
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
+#ifndef TODO_PARSER_H
+#define TODO_PARSER_H
 
 #include "command.h"
 
-Command parseCommandType(char* str);
+Command parseCommand(int argc, char **argv);
 
-void parseListCommand(int argc, char** argv, Command& command);
-
-void parseAddCommand(int argc, char** argv, Command& command);
-
-void parseRemoveCommand(int argc, char** argv, Command& command);
-
-void parseDooCommand(int argc, char** argv, Command& command);
-
-Command parseCommand(int argc, char** argv);
+#endif

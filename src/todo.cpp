@@ -16,13 +16,15 @@ std::string inline trimLeadingWhitespace(const std::string &str) {
 }
 
 Todo::Todo(const std::string &filename) :
-	filename(filename) 
+	filename(filename)
 {
 	std::ifstream file(filename);
+	if (!file && std::filesystem::exists(filename)) {
+		throw std::runtime_error("unable to open todo file '" + filename + "'");
+	}
 	for(std::string line; getline(file, line); ) {
 		lines.push_back(line);
 	}
-	file.close();
 }
 
 void Todo::addLine(unsigned index, const std::string &line) {
@@ -35,7 +37,7 @@ void Todo::addLine(unsigned index, const std::string &line) {
 
 void Todo::removeLine(unsigned index) {
 	
-	if (index > lines.size())
+	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
 	
 	lines.erase(lines.begin() + index);
@@ -43,7 +45,7 @@ void Todo::removeLine(unsigned index) {
 
 void Todo::setStatus(unsigned index, char status) {
 	
-	if (index > lines.size())
+	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
 	
 	size_t pos = lines[index].find_first_of('[');
@@ -61,14 +63,14 @@ void Todo::print() {
 }
 
 void Todo::printLine(unsigned index) {
-	if (index > lines.size())
+	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
 
 	std::string line = lines[index];
 
 	line = trimLeadingWhitespace(line);
-	bool isProject = line.front() == PROJECT_CHAR;
-	bool isTask    = line.front() == '[';
+	bool isProject = !line.empty() && line.front() == PROJECT_FILE_CHAR;
+	bool isTask = !line.empty() && line.front() == '[';
 
 	std::cout << Colour::BrightBlack << std::setw(4) << index << ":  " << Colour::Reset;
 	
@@ -87,18 +89,36 @@ void Todo::printLine(unsigned index) {
 
 void Todo::commit() {
 	std::ofstream file(filename);
+	if (!file) {
+		throw std::runtime_error("unable to open todo file for writing");
+	}
 	for (auto &s : lines) {
 		file << s << std::endl;
 	}
+	if (!file) {
+		throw std::runtime_error("failed while writing todo file");
+	}
 	file.close();
+	if (!file) {
+		throw std::runtime_error("failed to finish writing todo file");
+	}
 }
 
 void Todo::backup() {
 	std::ofstream file(filename + ".bak");
+	if (!file) {
+		throw std::runtime_error("unable to create todo backup");
+	}
 	for (auto &s : lines) {
 		file << s << std::endl;
 	}
+	if (!file) {
+		throw std::runtime_error("failed while writing todo backup");
+	}
 	file.close();
+	if (!file) {
+		throw std::runtime_error("failed to finish writing todo backup");
+	}
 }
 
 void Todo::restore() {
@@ -110,8 +130,13 @@ void Todo::restore() {
 
 	lines.clear();
 	std::ifstream file(backupFilename);
+	if (!file) {
+		throw std::runtime_error("unable to open todo backup");
+	}
 	for(std::string line; getline(file, line); ) {
 		lines.push_back(line);
 	}
-	file.close();
+	if (!file.eof()) {
+		throw std::runtime_error("failed while reading todo backup");
+	}
 }

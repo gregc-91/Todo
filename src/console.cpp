@@ -1,10 +1,11 @@
 #include "console.h"
 
-#include <cstdio>
-#include <cstdlib>
-
 #ifdef _WIN32
 #include <windows.h>
+
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
 
 namespace {
 HANDLE stdout_handle = INVALID_HANDLE_VALUE;
@@ -33,8 +34,6 @@ void Console::setup()
 
 void Console::restore()
 {
-    std::fputs("\x1b[0m", stdout);
-
 #ifdef _WIN32
     if (mode_changed) {
         SetConsoleMode(stdout_handle, initial_mode);

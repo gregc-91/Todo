@@ -11,8 +11,8 @@ It should be
 Commands
 
 todo <command>
-	list 
-		[#Project] [@Tag] [[*]] [#] [@]
+	list
+		[+Project] [@Tag] [[*]] [+] [@]
 		lists all the tasks
 			in a file
 			in a project
@@ -27,20 +27,22 @@ todo <command>
 			in a project
 			with status
 	add
-		[#Project] [@Tag] "Task"
+		[+Project] [@Tag] "Task"
 	remove
-		[#Project] [@Tag] <index>
-	do 
-		[#Project] [@Tag] <index>
+		<index>
+	do
+		<index>
+	set
+		<status> <index>
+		Sets a task to any supported status
 		
 	undo
 		Undoes the last action
 	tidy
-		Formats the todo.txt file
-			- Removes excess lines
-			- Fixes indentation and whitespace
-			- Checks for syntax errors
-			- Moves done and suspended tasks to done.txt
+		Normalizes blank lines between project sections
+
+Projects are entered as +Project in terminal commands. The + is not part of
+the project name; project headings are stored as "# Project" in todo.txt.
 	
 //todo: how to do hierarchical adding of notes?
 

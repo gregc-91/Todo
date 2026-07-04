@@ -1,12 +1,11 @@
-#ifndef __COMMAND_H__
-#define __COMMAND_H__
+#ifndef TODO_COMMAND_H
+#define TODO_COMMAND_H
 
-#include <assert.h>
-#include <string>
-#include <ostream>
-#include <istream>
 #include <cstdint>
+#include <istream>
+#include <ostream>
 #include <set>
+#include <string>
 
 #define DEBUG_PRINT 0
 
@@ -82,201 +81,62 @@ inline std::istream &operator>>(std::istream &is, ListMode &x) {
   return is;
 }
 
-TaskType parseTaskType(std::string &line);
+TaskType parseTaskType(const std::string &line);
+
+struct ListCommand {
+	ListMode mode = ListMode::Tasks;
+	std::string project;
+	std::set<std::string> tags;
+	std::set<char> statuses;
+};
+
+struct AddCommand {
+	std::string project;
+	std::string tag;
+	std::string task;
+	uint32_t index = 0;
+};
+
+struct RemoveCommand {
+	std::string project;
+	std::string tag;
+	uint32_t index = 0;
+};
+
+struct DoCommand {
+	std::string project;
+	std::string tag;
+	uint32_t index = 0;
+	char status = 'x';
+};
+
+struct SetCommand {
+	uint32_t index = 0;
+	char status = 'x';
+};
 
 struct Command {
-	Command() : ct(CommandType::None) {
-	}
-	
-	Command(CommandType commandType) {
-		ct = commandType;
-		switch (ct) {
-		case CommandType::List: 
-			list.mode = ListMode::Tasks;
-			new (&list.statuses)std::set<char>();
-			new (&list.project) std::string();
-			new (&list.tags)    std::set<std::string>();
-			break;
-		case CommandType::Add:
-			add.index = 0;
-			new (&add.project) std::string();
-			new (&add.tag)     std::string();
-			new (&add.task)    std::string();
-			break;
-		case CommandType::Remove:
-			remove.index = 0;
-			new (&remove.project) std::string();
-			new (&remove.tag)     std::string();
-			break;
-		case CommandType::Doo:
-			doo.index = 0;
-			doo.status = 'x';
-			new (&doo.project) std::string();
-			new (&doo.tag)     std::string();
-			break;
-		case CommandType::Set:
-			set.index = 0;
-			set.status = 'x';
-			break;
-		default: break;
-		}		
-	}
-	
-	Command(const Command& other) {
-		ct = other.type();
-		switch (ct) {
-		case CommandType::List: 
-			list.mode = other.list.mode;
-			new (&list.statuses) std::set<char>(other.list.statuses);
-			new (&list.project) std::string(other.list.project);
-			new (&list.tags)    std::set<std::string>(other.list.tags);
-			break;
-		case CommandType::Add:
-			add.index = other.add.index;
-			new (&add.project) std::string(other.add.project);
-			new (&add.tag)     std::string(other.add.tag);
-			new (&add.task)    std::string(other.add.task);
-			break;
-		case CommandType::Remove:
-			remove.index = other.remove.index;
-			new (&remove.project) std::string(other.remove.project);
-			new (&remove.tag)     std::string(other.remove.tag);
-			break;
-		case CommandType::Doo:
-			doo.index = other.doo.index;
-			doo.status = other.doo.status;
-			new (&doo.project) std::string(other.doo.project);
-			new (&doo.tag)     std::string(other.doo.tag);
-			break;
-		case CommandType::Set:
-			set.index = other.set.index;
-			set.status = other.set.status;
-		default: break;
-		}		
-	}
-	
-	Command& operator=(const Command& other) {
-		assert(ct == CommandType::None);
-		ct = other.type();
-		switch (ct) {
-		case CommandType::List: 
-			list.mode = other.list.mode;
-			new (&list.statuses) std::set<char>(other.list.statuses);
-			new (&list.project) std::string(other.list.project);
-			new (&list.tags)    std::set<std::string>(other.list.tags);
-			break;
-		case CommandType::Add:
-			add.index = other.add.index;
-			new (&add.project) std::string(other.add.project);
-			new (&add.tag)     std::string(other.add.tag);
-			new (&add.task)    std::string(other.add.task);
-			break;
-		case CommandType::Remove:
-			remove.index = other.remove.index;
-			new (&remove.project) std::string(other.remove.project);
-			new (&remove.tag)     std::string(other.remove.tag);
-			break;
-		case CommandType::Doo:
-			doo.index = other.doo.index;
-			doo.status = other.doo.status;
-			new (&doo.project) std::string(other.doo.project);
-			new (&doo.tag)     std::string(other.doo.tag);
-			break;
-		case CommandType::Set:
-			set.index = other.set.index;
-			set.status = other.set.status;
-			break;
-		default: break;
-		}
-		
-		return *this;
-	}
-	
-	~Command() {
-		using string = std::string;
-		
-		switch (ct) {
-		case CommandType::List:
-			list.statuses.~set();
-			list.project.~string();
-			list.tags.~set();
-			break;
-		case CommandType::Add:
-			add.project.~string();
-			add.tag.~string();
-			add.task.~string();
-			break;
-		case CommandType::Remove:
-			remove.project.~string();
-			remove.tag.~string();
-			break;
-		case CommandType::Doo:
-			doo.project.~string();
-			doo.tag.~string();
-			break;
-		default:
-			break;
-		}
-	}
+	Command() = default;
+	explicit Command(CommandType commandType) : ct(commandType) {}
 	
 	CommandType type() const { return ct; }
 	
-	bool shouldUpdateHistory();
-	void serialise(std::ostream &os);
+	bool shouldUpdateHistory() const;
+	void serialise(std::ostream &os) const;
 	void deserialise(std::istream &is);
-	void print();
-	
-	union {
-		struct {
-			ListMode mode;
-			std::string project;
-			std::set<std::string> tags;
-			std::set<char> statuses;
-		} list;
-		
-		struct {
-			std::string project;
-			std::string tag;
-			std::string task;
-			uint32_t index;
-		} add;
-		
-		struct {
-			std::string project;
-			std::string tag;
-			uint32_t index;
-		} remove;
-		
-		struct {
-			std::string project;
-			std::string tag;
-			uint32_t index;
-			char status;
-		} doo;
+	void print() const;
 
-		struct {
-			uint32_t index;
-			char status;
-		} set;
-		
-		struct {
-			uint32_t placeholder;
-		} undo;
-		
-		struct {
-			uint32_t placeholder;
-		} tidy;
-		
-		struct {
-			uint32_t placeholder;
-		} none;
-	};
-	
+	ListCommand list;
+	AddCommand add;
+	RemoveCommand remove;
+	DoCommand doo;
+	SetCommand set;
+
 private:
-	CommandType ct;
+	CommandType ct = CommandType::None;
 };
 
-Command inverseCommand(const Todo &todo, const Command command);
+Command inverseCommand(const Todo &todo, const Command &command);
 void executeCommand(Todo &todo, Command &command);
 
 #endif

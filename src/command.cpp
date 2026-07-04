@@ -1,17 +1,17 @@
 
 #include "command.h"
 
-#include <sstream>
-#include "todo.h"
 #include "colour.h"
+#include "todo.h"
+#include "utility.h"
 
-#include <strings.h>
-#include <fstream>
-#include <iostream>
-#include <iomanip>
-#include <list>
-#include <set>
 #include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <set>
 
 const char* CommandStrings[CommandType::CommandTypeSize] = {
 	"List",
@@ -42,29 +42,41 @@ std::string inline trimLeadingWhitespace(const std::string &str) {
 	return start == std::string::npos ? "" : str.substr(start);
 }
 
+bool isBlank(const std::string &line) {
+	return std::all_of(line.begin(), line.end(),
+		[](unsigned char value) { return std::isspace(value); });
+}
+
 std::string createTaskString(const char status, std::string line, std::string tag) {
-	return "[" + std::string(1, status) + "] " + line + (tag.empty() ? "" : (std::string(1, TAG_CHAR) + tag));
+	return "[" + std::string(1, status) + "] " + line +
+		(tag.empty() ? "" : (" " + std::string(1, TAG_CHAR) + tag));
 }
 
 bool isAnyProject(const std::string &str) {
 	std::string trimmedLine = trimLeadingWhitespace(str);
-	bool isProject = trimmedLine.front() == PROJECT_CHAR;
-	return isProject;
+	return !trimmedLine.empty() && trimmedLine.front() == PROJECT_FILE_CHAR;
+}
+
+std::string projectName(const std::string &str) {
+	std::string line = trimLeadingWhitespace(str);
+	if (line.empty() || line.front() != PROJECT_FILE_CHAR) {
+		return "";
+	}
+	return trimLeadingWhitespace(line.substr(1));
 }
 
 bool isProject(const std::string &str, const std::string &project) {
-	std::string line = trimLeadingWhitespace(str);
-	if (line.front() != PROJECT_CHAR) return false;
-	
-	return project == line.substr(1);
+	return equalsIgnoreCase(projectName(str), project);
 }
 
 bool containsTag(const std::string &str, const std::string &tag) {
 	std::stringstream stream(str);
 	std::string intermediate;
 	while(getline(stream, intermediate, ' ')) {
-		if (strcasecmp(intermediate.c_str(), (std::string(1, TAG_CHAR) + tag).c_str()) == 0)
+		if (intermediate.size() > 1 && intermediate.front() == TAG_CHAR &&
+			equalsIgnoreCase(intermediate.substr(1), tag)) {
 			return true;
+		}
 	}
 	return false;
 }
@@ -99,7 +111,7 @@ int findLastOfProject(const Todo &todo, const std::string &project) {
 	unsigned lastNonEmpty = 0;
 	for (unsigned i = 0; i < todo.lines.size(); i++) {
 		std::string line = trimLeadingWhitespace(todo.lines[i]);
-		if (line[0] == PROJECT_CHAR) {
+		if (isAnyProject(line)) {
 			if (isProject(todo.lines[i], project)) matchProject = true;
 			else if (matchProject) return lastNonEmpty+1;
 		}
@@ -114,11 +126,11 @@ int findLastOfProject(const Todo &todo, const std::string &project) {
 	}
 }
 
-TaskType parseTaskType(std::string &line) {
-	assert(line.size() >= 3);
-	assert(line[0] == '[');
-	assert(line[2] == ']');
-	assert(line[3] == ' ');
+TaskType parseTaskType(const std::string &line) {
+	if (line.size() < 4 || line[0] != '[' || line[2] != ']' ||
+		line[3] != ' ') {
+		throw std::runtime_error("invalid task syntax: expected '[status] task'");
+	}
 	
 	switch (line[1]) {
 	case '-': return TaskType::Normal;
@@ -139,7 +151,7 @@ std::set<std::string> getTags(std::string line) {
 	std::string intermediate;
 	while(getline(stream, intermediate, ' ')) {
 		if (intermediate.length() && intermediate[0] == TAG_CHAR) {
-			if (intermediate.length() > 1) tags.insert(intermediate);
+			if (intermediate.length() > 1) tags.insert(intermediate.substr(1));
 		}
 	}
 	return tags;
@@ -153,14 +165,16 @@ struct Line {
 struct Project {
 	std::string name;
 	uint32_t no;
+	std::string heading;
 	std::vector<Line> lines;
 };
 
 void printLine(std::string line, uint32_t lineNo) {
 
 	std::string trimmedLine = trimLeadingWhitespace(line);
-	bool isProject = trimmedLine.front() == PROJECT_CHAR;
-	bool isTask    = trimmedLine.front() == '[';
+	bool isProject = !trimmedLine.empty() &&
+		trimmedLine.front() == PROJECT_FILE_CHAR;
+	bool isTask = !trimmedLine.empty() && trimmedLine.front() == '[';
 
 	std::cout << Colour::BrightBlack << std::setw(4) << lineNo << ":  " << Colour::Reset;
 		
@@ -179,93 +193,117 @@ void printLine(std::string line, uint32_t lineNo) {
 	std::cout << Colour::Reset;
 };
 
-// Todo: convert this to using the Todo class
-static void executeListCommand(const Command command) {
+bool projectMatches(const Project &project, const Command &command)
+{
+	return command.list.project.empty() ||
+		equalsIgnoreCase(project.name, command.list.project);
+}
+
+bool lineMatches(const std::string &line, const Command &command)
+{
+	if (!command.list.tags.empty() &&
+		!containsTagFromSet(line, command.list.tags)) {
+		return false;
+	}
+	if (!command.list.statuses.empty() &&
+		!hasStatusFromSet(trimLeadingWhitespace(line),
+			command.list.statuses)) {
+		return false;
+	}
+	return true;
+}
+
+static void executeListCommand(const Todo &todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing list command.\n");
 
-	std::ifstream file("todo.txt");
-	
-	bool filterProject = command.list.project != "";
 	bool filterTag     = !command.list.tags.empty();
 	bool filterStatus  = !command.list.statuses.empty();
 	std::set<std::string> tagsInFile;
 	std::vector<Project> projects;
 
 	unsigned lineNo = 0;
-	std::string projectName = "";
-	for(std::string line; getline(file, line); lineNo++) {
-
+	for (const std::string &line : todo.lines) {
 		std::string trimmedLine = trimLeadingWhitespace(line);
-		bool isProject = trimmedLine.front() == PROJECT_CHAR;
-		
-		if (isProject) {
-			std::stringstream lineStream(trimLeadingWhitespace(trimmedLine.substr(1))); 
-			std::getline(lineStream, projectName, ' ');
-
-			projects.push_back({trimmedLine.substr(1), lineNo, std::vector<Line>()});
+		if (isAnyProject(trimmedLine)) {
+			projects.push_back({
+				projectName(trimmedLine), lineNo, line, std::vector<Line>()
+			});
+		} else {
+			if (projects.empty()) {
+				projects.push_back({
+					std::string(), 0, std::string(), std::vector<Line>()
+				});
+			}
+			projects.back().lines.push_back({line, lineNo});
 		}
-		
-		if (command.list.mode == ListMode::Projects && !isProject) {
-			continue;
-		}
-
-		if (command.list.mode == ListMode::Tags) {
-			std::set<std::string> tagsInLine;
-			tagsInFile.merge(getTags(trimmedLine));
-			continue;
-		}
-		
-		if (filterProject && strcasecmp(command.list.project.c_str(), projectName.c_str())) {
-			continue;
-		}
-		
-		if (filterTag && !containsTagFromSet(trimmedLine, command.list.tags)) {
-			continue;
-		}
-		
-		if (filterStatus && !hasStatusFromSet(trimmedLine, command.list.statuses)) {
-			continue;
-		}
-		
-		// Create a dummy project if we have yet to see one
-		if (projects.empty()) {
-			projects.push_back({std::string(""), lineNo, std::vector<Line>()});
-		}
-		projects.back().lines.push_back({line, lineNo});
+		++lineNo;
 	}
 
-	// Remove empty projects
-	projects.erase(std::remove_if(
-			projects.begin(), projects.end(), [](const Project& p) { return p.lines.empty(); }
-		), projects.end()
-	);
+	if (command.list.mode == ListMode::Projects) {
+		for (const Project &project : projects) {
+			if (project.heading.empty() || !projectMatches(project, command)) {
+				continue;
+			}
+			if ((filterTag || filterStatus) &&
+				std::none_of(project.lines.begin(), project.lines.end(),
+					[&command](const Line &line) {
+						return lineMatches(line.line, command);
+					})) {
+				continue;
+			}
+			printLine(project.heading, project.no);
+		}
+		return;
+	}
 
 	if (command.list.mode == ListMode::Tags) {
-		for (auto tag : tagsInFile) {
-			std::cout << "  " << tag << std::endl;
-		}
-	} else {
-		bool printProjectName = 
-			command.list.mode == ListMode::Projects ||
-			(command.list.mode == ListMode::Tasks && (filterTag || filterStatus));
-
-		size_t i = 0;
-		for (auto &project : projects) {
-			if (project.lines.empty()) 
+		for (const Project &project : projects) {
+			if (!projectMatches(project, command)) {
 				continue;
-
-			if (printProjectName) {
-				printLine(std::string("+") + project.name, project.no);
 			}
-
-			for (auto &line : project.lines) {
-				printLine(line.line, line.no);
+			for (const Line &line : project.lines) {
+				if (filterStatus &&
+					!hasStatusFromSet(trimLeadingWhitespace(line.line),
+						command.list.statuses)) {
+					continue;
+				}
+				for (const std::string &tag : getTags(line.line)) {
+					if (!filterTag ||
+						containsTagFromSet(
+							std::string(1, TAG_CHAR) + tag,
+							command.list.tags)) {
+						tagsInFile.insert(tag);
+					}
+				}
 			}
+		}
+		for (const std::string &tag : tagsInFile) {
+			std::cout << "  " << TAG_CHAR << tag << std::endl;
+		}
+		return;
+	}
 
-			if (printProjectName && i < projects.size()-1) {
-				std::cout << std::endl;
+	for (const Project &project : projects) {
+		if (!projectMatches(project, command)) {
+			continue;
+		}
+
+		std::vector<Line> matchingLines;
+		for (const Line &line : project.lines) {
+			if ((!filterTag && !filterStatus) ||
+				lineMatches(line.line, command)) {
+				matchingLines.push_back(line);
 			}
-			i++;
+		}
+
+		if (matchingLines.empty() && (filterTag || filterStatus)) {
+			continue;
+		}
+		if (!project.heading.empty()) {
+			printLine(project.heading, project.no);
+		}
+		for (const Line &line : matchingLines) {
+			printLine(line.line, line.no);
 		}
 	}
 }
@@ -278,11 +316,11 @@ static void executeAddCommand(Todo& todo, Command &command) {
 	int index = findLastOfProject(todo, command.add.project);
 
 	if (index == -1) { // Project doesn't exist, add it first
-		// If the last last isn't blank, add one
-		if (!std::all_of(todo.lines.back().begin(),todo.lines.back().end(),isspace)) {
+		if (!todo.lines.empty() && !isBlank(todo.lines.back())) {
 			todo.addLine(todo.lines.size(), std::string(""));
 		}
-		todo.addLine(todo.lines.size(), std::string(1, PROJECT_CHAR) + command.add.project);
+		todo.addLine(todo.lines.size(),
+			std::string(1, PROJECT_FILE_CHAR) + " " + command.add.project);
 		index = todo.lines.size();
 	}
 
@@ -318,24 +356,20 @@ static void executeSetCommand(Todo& todo, const Command command) {
 
 static void executeUndoCommand(Todo& todo, const Command) {
 	if (DEBUG_PRINT) printf("Executing undo command.\n");
-	
+
 	Command previous;
 	Command inverse;
-	
-	// Read the last command and inverse command from the history file
-	try {
-		std::ifstream history_stream("history.txt");
-		previous.deserialise(history_stream);
-		inverse.deserialise(history_stream);
-	} catch (std::runtime_error& e) {
-        std::cout << "Command history error: " << e.what() << std::endl;
-        exit(-1);
-    }
-	
-	// Print the last commands to check them
+
+	std::ifstream historyStream("history.txt");
+	if (!historyStream) {
+		throw std::runtime_error("no command history found");
+	}
+	previous.deserialise(historyStream);
+	inverse.deserialise(historyStream);
+
 	previous.print();
 	inverse.print();
-	
+
 	executeCommand(todo, inverse);
 }
 
@@ -346,14 +380,13 @@ static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 
 	for(size_t i = 1; i < todo.lines.size(); i++) {
 		// Remove duplicate blank lines
-		if (std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) && 
-			std::all_of(todo.lines[i].begin(),todo.lines[i].end(),isspace)) {
+		if (isBlank(todo.lines[i-1]) && isBlank(todo.lines[i])) {
 			todo.removeLine(i--);
 			continue;
 		}
 
 		// Remove blank lines which aren't immediately before a project
-		if (std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) &&
+		if (isBlank(todo.lines[i-1]) &&
 			!isAnyProject(todo.lines[i])) {
 			todo.removeLine(--i);
 			continue;
@@ -362,7 +395,7 @@ static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 
 	// Add a blank line before a project
 	for(size_t i = 1; i < todo.lines.size(); i++) {
-		if (!std::all_of(todo.lines[i-1].begin(),todo.lines[i-1].end(),isspace) &&
+		if (!isBlank(todo.lines[i-1]) &&
 			isAnyProject(todo.lines[i])) {
 			todo.addLine(i, "");
 		}
@@ -380,7 +413,7 @@ void executeCommand(Todo &todo, Command &command) {
 	switch (command.type()) {
 	case CommandType::List:
 		{
-			executeListCommand(/*todo, */command);
+			executeListCommand(todo, command);
 		} break;
 	case CommandType::Add:
 		{
@@ -422,8 +455,8 @@ std::string lineToProject(const Todo &todo, uint32_t index)
 	}
 
 	for (int i = index; i >= 0; i--) {
-		if (todo.lines[i].front() == PROJECT_CHAR) {
-			return trimLeadingWhitespace(todo.lines[i]).substr(1);
+		if (isAnyProject(todo.lines[i])) {
+			return projectName(todo.lines[i]);
 		}
 	}
 	return std::string("");
@@ -431,43 +464,56 @@ std::string lineToProject(const Todo &todo, uint32_t index)
 
 std::string lineToTag(const Todo &todo, uint32_t index)
 {
-	size_t pos = todo.lines[index].find_last_of(" ");
-	if (pos != std::string::npos && pos+1 < todo.lines[index].length() && todo.lines[index][pos+1] == '@') {
-		return todo.lines[index].substr(pos+2);
+	if (index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
+	}
+
+	const std::string line = trimLeadingWhitespace(todo.lines[index]);
+	size_t pos = line.find_last_of(' ');
+	if (pos != std::string::npos && pos + 2 < line.length() &&
+		line[pos + 1] == TAG_CHAR) {
+		return line.substr(pos + 2);
 	}
 	return "";
 }
 
 std::string lineToTask(const Todo &todo, uint32_t index)
 {
-	size_t start = todo.lines[index].find_first_of("[") + 3;
-	
-	if (start >= todo.lines[index].length()) {
-		throw std::runtime_error("Failed to parse task string");
+	if (index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
 	}
-	
-	std::string line = todo.lines[index].substr(start);
-	
-	size_t pos = line.find_last_of(" ");
-	if (pos != std::string::npos && pos+1 < todo.lines[index].length() && todo.lines[index][pos+1] == '@') {
+
+	const std::string source = trimLeadingWhitespace(todo.lines[index]);
+	if (source.size() < 4 || source[0] != '[' || source[2] != ']' ||
+		source[3] != ' ') {
+		throw std::runtime_error("line is not a task");
+	}
+
+	std::string line = source.substr(4);
+	size_t pos = line.find_last_of(' ');
+	if (pos != std::string::npos && pos + 1 < line.length() &&
+		line[pos + 1] == TAG_CHAR) {
 		return line.substr(0, pos);
 	}
 	return line;
 }
 
-char lineToStatus(const Todo &todo, uint32_t index) 
+char lineToStatus(const Todo &todo, uint32_t index)
 {
-	size_t start = todo.lines[index].find_first_of("[") + 1;
-	
-	if (start >= todo.lines[index].length()) {
-		throw std::runtime_error("Failed to parse task string");
+	if (index >= todo.lines.size()) {
+		throw std::runtime_error("Index out of bounds");
 	}
-	
-	if (DEBUG_PRINT) printf("Status for line %d: %c\n", index, todo.lines[index][start]);
-	return todo.lines[index][start];
+
+	const std::string line = trimLeadingWhitespace(todo.lines[index]);
+	if (line.size() < 4 || line[0] != '[' || line[2] != ']' ||
+		line[3] != ' ') {
+		throw std::runtime_error("line is not a task");
+	}
+	if (DEBUG_PRINT) printf("Status for line %u: %c\n", index, line[1]);
+	return line[1];
 }
 
-Command inverseCommand(const Todo &todo, const Command command)
+Command inverseCommand(const Todo &todo, const Command &command)
 {
 	// List : None
 	// Add  : Remove
@@ -529,7 +575,7 @@ void serialise_string(std::ostream &os, const std::string &str)
 	os << ',';
 }
 
-void serialise_set(std::ostream &os, std::set<std::string> &set)
+void serialise_set(std::ostream &os, const std::set<std::string> &set)
 {
 	os << set.size() << ',';
 	for (auto &str : set) {
@@ -537,7 +583,7 @@ void serialise_set(std::ostream &os, std::set<std::string> &set)
 	}
 }
 
-void serialise_set(std::ostream &os, std::set<char> &set)
+void serialise_set(std::ostream &os, const std::set<char> &set)
 {
 	os << set.size() << ',';
 	for (auto &chr : set) {
@@ -548,21 +594,30 @@ void serialise_set(std::ostream &os, std::set<char> &set)
 
 void deserialise_string(std::istream &is, std::string &str)
 {
-	size_t length;
-	char junk;
-	is >> length >> junk;
-	if (length) str.resize(length);
-	for (unsigned i = 0; i < length; i++) {
-		is >> std::noskipws >> str[i];
+	size_t length = 0;
+	char delimiter = '\0';
+	if (!(is >> length >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed string in command history");
 	}
-	is >> junk;
+
+	str.resize(length);
+	if (length > 0 &&
+		!is.read(&str[0], static_cast<std::streamsize>(length))) {
+		throw std::runtime_error("truncated string in command history");
+	}
+	if (!is.get(delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed string in command history");
+	}
 }
 
 void deserialise_set(std::istream &is, std::set<std::string> &set)
 {
-	size_t length;
-	char junk;
-	is >> length >> junk;
+	size_t length = 0;
+	char delimiter = '\0';
+	if (!(is >> length >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed set in command history");
+	}
+	set.clear();
 	for (unsigned i = 0; i < length; i++) {
 		std::string str;
 		deserialise_string(is, str);
@@ -572,17 +627,34 @@ void deserialise_set(std::istream &is, std::set<std::string> &set)
 
 void deserialise_set(std::istream &is, std::set<char> &set)
 {
-	size_t length;
-	char junk;
-	is >> length >> junk;
-	for (unsigned i = 0; i < length; i++) {
-		is >> std::noskipws >> junk;
-		set.insert(junk);
+	size_t length = 0;
+	char delimiter = '\0';
+	if (!(is >> length >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed set in command history");
 	}
-	is >> junk;
+	set.clear();
+	for (unsigned i = 0; i < length; i++) {
+		char value = '\0';
+		if (!is.get(value)) {
+			throw std::runtime_error("truncated set in command history");
+		}
+		set.insert(value);
+	}
+	if (!is.get(delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed set in command history");
+	}
 }
 
-void Command::serialise(std::ostream &os) 
+template <typename T>
+void deserialise_value(std::istream &is, T &value)
+{
+	char delimiter = '\0';
+	if (!(is >> value >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed value in command history");
+	}
+}
+
+void Command::serialise(std::ostream &os) const
 {
 	os << ct << ',';
 	
@@ -635,54 +707,54 @@ void Command::serialise(std::ostream &os)
 void Command::deserialise(std::istream &is)
 {
 	char tmp;
-	is >> ct >> tmp;
-	
+	int type;
+	if (!(is >> type >> tmp) || tmp != ',' ||
+		type < CommandType::List || type > CommandType::None) {
+		throw std::runtime_error("invalid command type in history");
+	}
+	ct = static_cast<CommandType>(type);
+
 	switch (ct) {
 	case CommandType::List:
 	{
-		is >> list.mode >> tmp;
-		new (&list.project) std::string();
+		list = ListCommand();
+		deserialise_value(is, list.mode);
 		deserialise_string(is, list.project);
-		new (&list.tags) std::set<std::string>();
 		deserialise_set(is, list.tags);
-		new (&list.statuses) std::set<char>();
 		deserialise_set(is, list.statuses);
 		break;
 	}
 	case CommandType::Add:
 	{
-		new (&add.project) std::string();
+		add = AddCommand();
 		deserialise_string(is, add.project);
-		new (&add.tag) std::string();
 		deserialise_string(is, add.tag);
-		new (&add.task) std::string();
 		deserialise_string(is, add.task);
-		is >> add.index >> tmp;
+		deserialise_value(is, add.index);
 		break;
 	}
 	case CommandType::Remove:
 	{
-		new (&remove.project) std::string();
+		remove = RemoveCommand();
 		deserialise_string(is, remove.project);
-		new (&remove.tag) std::string();
 		deserialise_string(is, remove.tag);
-		is >> remove.index >> tmp;
+		deserialise_value(is, remove.index);
 		break;
 	}
 	case CommandType::Doo:
 	{
-		new (&doo.project) std::string();
+		doo = DoCommand();
 		deserialise_string(is, doo.project);
-		new (&doo.tag) std::string();
 		deserialise_string(is, doo.tag);
-		is >> doo.index >> tmp;
-		is >> doo.status >> tmp;
+		deserialise_value(is, doo.index);
+		deserialise_value(is, doo.status);
 		break;
 	}
 	case CommandType::Set:
 	{
-		is >> set.index >> tmp;
-		is >> set.status >> tmp;
+		set = SetCommand();
+		deserialise_value(is, set.index);
+		deserialise_value(is, set.status);
 		break;
 	}
 	case CommandType::Tidy:
@@ -698,7 +770,7 @@ void Command::deserialise(std::istream &is)
 	}
 }
 
-bool Command::shouldUpdateHistory()
+bool Command::shouldUpdateHistory() const
 {
 	switch (ct) {
 	case CommandType::Add:
@@ -712,7 +784,7 @@ bool Command::shouldUpdateHistory()
 	}
 }
 
-void Command::print()
+void Command::print() const
 {
 	if (!DEBUG_PRINT) return;
 
@@ -736,28 +808,28 @@ void Command::print()
 		printf("Project: %s, ", add.project.c_str());
 		printf("Tag: %s, ", add.tag.c_str());
 		printf("Task: %s, ", add.task.c_str());
-		printf("Index: %d}\n", add.index);
+		printf("Index: %u}\n", add.index);
 		break;
 	}
 	case CommandType::Remove:
 	{
 		printf("Project: %s, ", remove.project.c_str());
 		printf("Tag: %s, ", remove.tag.c_str());
-		printf("Index: %d}\n", remove.index);
+		printf("Index: %u}\n", remove.index);
 		break;
 	}
 	case CommandType::Doo:
 	{
 		printf("Project: %s, ", doo.project.c_str());
 		printf("Tag: %s, ", doo.tag.c_str());
-		printf("Index: %d, ", doo.index);
+		printf("Index: %u, ", doo.index);
 		printf("Status: [%c]}\n", doo.status);
 		break;
 	}
 	case CommandType::Set:
 	{
-		printf("Index: %d, ", doo.index);
-		printf("Status: [%c]}\n", doo.status);
+		printf("Index: %u, ", set.index);
+		printf("Status: [%c]}\n", set.status);
 		break;
 	}
 	default: printf("}\n"); break;	

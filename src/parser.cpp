@@ -1,142 +1,243 @@
 #include "parser.h"
+
 #include "todo.h"
+#include "utility.h"
 
-void validateStatus(char status) {
-    if (strchr("-!^vx~.", status) == NULL) {
-        printf("Error: invalid status\n");
-        exit(0);
-    }
+#include <charconv>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
+
+namespace {
+bool isValidStatus(char status)
+{
+	const std::string validStatuses = "-!^vx~.";
+	return validStatuses.find(status) != std::string::npos;
 }
 
-Command parseCommandType(char* str)
+char parseStatus(const char *argument)
 {
-    if (!strcasecmp(str, CommandStrings[CommandType::List])) return Command(CommandType::List);
-    if (!strcasecmp(str, CommandStrings[CommandType::Add])) return Command(CommandType::Add);
-    if (!strcasecmp(str, CommandStrings[CommandType::Remove])) return Command(CommandType::Remove);
-    if (!strcasecmp(str, CommandStrings[CommandType::Doo])) return Command(CommandType::Doo);
-    if (!strcasecmp(str, CommandStrings[CommandType::Set])) return Command(CommandType::Set);
-    if (!strcasecmp(str, CommandStrings[CommandType::Undo])) return Command(CommandType::Undo);
-    if (!strcasecmp(str, CommandStrings[CommandType::Tidy])) return Command(CommandType::Tidy);
+	const std::string value(argument);
+	char status = '\0';
 
-    throw std::invalid_argument("Invalid command type!");
+	if (value.size() == 1) {
+		status = value[0];
+	} else if (value.size() == 3 && value.front() == '[' &&
+			   value.back() == ']') {
+		status = value[1];
+	} else {
+		throw std::invalid_argument(
+			"status must be one of -, !, ^, v, x, ~, or .");
+	}
+
+	if (!isValidStatus(status)) {
+		throw std::invalid_argument(
+			"status must be one of -, !, ^, v, x, ~, or .");
+	}
+	return status;
 }
 
-void parseListCommand(int argc, char** argv, Command& command)
+uint32_t parseLineNumber(const char *argument)
 {
-    for (int i = 0; i < argc; i++) {
-        switch (argv[i][0]) {
-            case PROJECT_CHAR:
-                if (argv[i][1] != '\0') {
-                    if (command.list.project != "")
-                        throw std::runtime_error("Duplicate project name");
-                    command.list.project = std::string(argv[i] + 1);
-                } else {
-                    command.list.mode = ListMode::Projects;
-                }
-                break;
-            case TAG_CHAR:
-                if (argv[i][1] != '\0') {
-                    command.list.tags.insert(std::string(argv[i] + 1));
-                } else {
-                    command.list.mode = ListMode::Tags;
-                }
-                break;
-            case '[':
-                {
-                    if (argv[i][1] == '\0') throw std::runtime_error("Invalid status");
-                    int j = 1;
-                    while (argv[i][j] != '\0' && argv[i][j] != ']') {
-                        validateStatus(argv[i][j]);
-                        command.list.statuses.insert(argv[i][j++]);
-                    }
-                }
-                break;
-            default:
-                throw std::runtime_error("Unknown list subcommand");
-        }
-    }
+	const std::string value(argument);
+	if (value.empty()) {
+		throw std::invalid_argument("line number is missing");
+	}
+
+	uint64_t parsed = 0;
+	const char *begin = value.data();
+	const char *end = begin + value.size();
+	const auto result = std::from_chars(begin, end, parsed, 10);
+
+	if (result.ec != std::errc() || result.ptr != end ||
+		parsed > std::numeric_limits<uint32_t>::max()) {
+		throw std::invalid_argument(
+			"line number must be a non-negative decimal integer");
+	}
+	return static_cast<uint32_t>(parsed);
 }
 
-void parseAddCommand(int argc, char** argv, Command& command)
+void setListMode(Command &command, ListMode mode)
 {
-    for (int i = 0; i < argc; i++) {
-        switch (argv[i][0]) {
-            case PROJECT_CHAR:
-                if (argv[i][1] == '\0') throw std::runtime_error("Missing project name");
-                command.add.project = std::string(argv[i] + 1);
-                break;
-            case TAG_CHAR:
-                if (argv[i][1] == '\0') throw std::runtime_error("Missing tag name");
-                command.add.tag = std::string(argv[i] + 1);
-                break;
-            default:
-                if (!command.add.task.empty()) throw std::runtime_error("Duplicate task name");
-                command.add.task = std::string(argv[i]);
-                break;
-        }
-    }
-
-    if (command.add.task.empty()) throw std::runtime_error("Missing line to add");
+	if (command.list.mode != ListMode::Tasks && command.list.mode != mode) {
+		throw std::invalid_argument(
+			"list can show projects or tags, but not both");
+	}
+	command.list.mode = mode;
 }
 
-void parseRemoveCommand(int argc, char** argv, Command& command)
+Command parseCommandType(const char *argument)
 {
-    if (argc != 1) throw std::runtime_error("Invalid number of arguments");
+	struct Candidate {
+		const char *name;
+		CommandType type;
+	};
+	const Candidate candidates[] = {
+		{"list", CommandType::List},
+		{"add", CommandType::Add},
+		{"remove", CommandType::Remove},
+		{"do", CommandType::Doo},
+		{"set", CommandType::Set},
+		{"undo", CommandType::Undo},
+		{"tidy", CommandType::Tidy}
+	};
 
-    char* endptr;
-    long line = strtol(argv[0], &endptr, 0);
-    if (endptr == argv[0]) throw std::runtime_error("Unable to parse line number");
+	const std::string input(argument);
+	const Candidate *closest = &candidates[0];
+	std::size_t closestDistance = editDistance(input, closest->name);
 
-    command.remove.index = line;
+	for (const Candidate &candidate : candidates) {
+		if (equalsIgnoreCase(input, candidate.name)) {
+			return Command(candidate.type);
+		}
+
+		const std::size_t distance = editDistance(input, candidate.name);
+		if (distance < closestDistance) {
+			closest = &candidate;
+			closestDistance = distance;
+		}
+	}
+
+	throw std::invalid_argument(
+		"unknown command '" + input + "'; did you mean '" +
+		closest->name + "'?");
 }
 
-void parseDooCommand(int argc, char** argv, Command& command)
+void parseListCommand(int argc, char **argv, Command &command)
 {
-    if (argc != 1) throw std::runtime_error("Invalid number of arguments");
+	for (int i = 0; i < argc; ++i) {
+		const std::string argument(argv[i]);
+		if (argument.empty()) {
+			throw std::invalid_argument("empty list argument");
+		}
 
-    char* endptr;
-    long line = strtol(argv[0], &endptr, 0);
-    if (endptr == argv[0]) throw std::runtime_error("Unable to parse line number");
-
-    command.doo.index = line;
+		switch (argument.front()) {
+		case PROJECT_ARGUMENT_CHAR:
+			if (argument.size() == 1) {
+				setListMode(command, ListMode::Projects);
+			} else {
+				if (!command.list.project.empty()) {
+					throw std::invalid_argument("duplicate project filter");
+				}
+				command.list.project = argument.substr(1);
+			}
+			break;
+		case TAG_CHAR:
+			if (argument.size() == 1) {
+				setListMode(command, ListMode::Tags);
+			} else {
+				command.list.tags.insert(argument.substr(1));
+			}
+			break;
+		case '[':
+			if (argument.size() < 3 || argument.back() != ']') {
+				throw std::invalid_argument(
+					"status filter must look like '[x]' or '[-!^v]'");
+			}
+			for (std::size_t j = 1; j + 1 < argument.size(); ++j) {
+				if (!isValidStatus(argument[j])) {
+					throw std::invalid_argument(
+						"status filter contains an invalid status");
+				}
+				command.list.statuses.insert(argument[j]);
+			}
+			break;
+		default:
+			throw std::invalid_argument(
+				"unknown list argument '" + argument + "'");
+		}
+	}
 }
 
-void parseSetCommand(int argc, char** argv, Command& command)
+void parseAddCommand(int argc, char **argv, Command &command)
 {
-    if (argc != 2) throw std::runtime_error("Invalid number of arguments");
+	for (int i = 0; i < argc; ++i) {
+		const std::string argument(argv[i]);
+		if (argument.empty()) {
+			throw std::invalid_argument("empty add argument");
+		}
 
-    char* endptr;
-    char status = argv[0][0];
-    long line = strtol(argv[1], &endptr, 0);
-    if (endptr == argv[1]) throw std::runtime_error("Unable to parse line number");
+		if (argument.front() == PROJECT_ARGUMENT_CHAR) {
+			if (argument.size() == 1) {
+				throw std::invalid_argument("project name is missing");
+			}
+			if (!command.add.project.empty()) {
+				throw std::invalid_argument("duplicate project");
+			}
+			command.add.project = argument.substr(1);
+		} else if (argument.front() == TAG_CHAR) {
+			if (argument.size() == 1) {
+				throw std::invalid_argument("tag name is missing");
+			}
+			if (!command.add.tag.empty()) {
+				throw std::invalid_argument("duplicate tag");
+			}
+			command.add.tag = argument.substr(1);
+		} else {
+			if (!command.add.task.empty()) {
+				throw std::invalid_argument(
+					"task text must be passed as one quoted argument");
+			}
+			command.add.task = argument;
+		}
+	}
 
-    validateStatus(status);
-
-    command.set.index = line;
-    command.set.status = status;
+	if (command.add.task.empty()) {
+		throw std::invalid_argument("task text is missing");
+	}
 }
 
-Command parseCommand(int argc, char** argv)
+void requireArgumentCount(const char *command, int actual, int expected)
 {
-    if (argc < 2) throw std::invalid_argument("Not enough arguments!");
+	if (actual != expected) {
+		throw std::invalid_argument(
+			std::string(command) + " expects " +
+			std::to_string(expected) + " argument" +
+			(expected == 1 ? "" : "s"));
+	}
+}
+}
 
-    Command command = parseCommandType(argv[1]);
+Command parseCommand(int argc, char **argv)
+{
+	if (argc < 2) {
+		throw std::invalid_argument("no command supplied; use --help");
+	}
 
-    if (command.type() == CommandType::List) {
-        parseListCommand(argc - 2, argv + 2, command);
-    }
-    if (command.type() == CommandType::Add) {
-        parseAddCommand(argc - 2, argv + 2, command);
-    }
-    if (command.type() == CommandType::Remove) {
-        parseRemoveCommand(argc - 2, argv + 2, command);
-    }
-    if (command.type() == CommandType::Doo) {
-        parseDooCommand(argc - 2, argv + 2, command);
-    }
-    if (command.type() == CommandType::Set) {
-        parseSetCommand(argc - 2, argv + 2, command);
-    }
+	Command command = parseCommandType(argv[1]);
+	const int argumentCount = argc - 2;
+	char **arguments = argv + 2;
 
-    return command;
+	switch (command.type()) {
+	case CommandType::List:
+		parseListCommand(argumentCount, arguments, command);
+		break;
+	case CommandType::Add:
+		parseAddCommand(argumentCount, arguments, command);
+		break;
+	case CommandType::Remove:
+		requireArgumentCount("remove", argumentCount, 1);
+		command.remove.index = parseLineNumber(arguments[0]);
+		break;
+	case CommandType::Doo:
+		requireArgumentCount("do", argumentCount, 1);
+		command.doo.index = parseLineNumber(arguments[0]);
+		break;
+	case CommandType::Set:
+		requireArgumentCount("set", argumentCount, 2);
+		command.set.status = parseStatus(arguments[0]);
+		command.set.index = parseLineNumber(arguments[1]);
+		break;
+	case CommandType::Undo:
+		requireArgumentCount("undo", argumentCount, 0);
+		break;
+	case CommandType::Tidy:
+		requireArgumentCount("tidy", argumentCount, 0);
+		break;
+	default:
+		throw std::invalid_argument("unsupported command");
+	}
+
+	return command;
 }
