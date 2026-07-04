@@ -3,8 +3,9 @@
 EXE    = todo
 SRC    = src
 BIN    = bin
-CC     = g++
-CFLAGS = -O3 -Wall -g
+CXX      ?= c++
+CXXFLAGS ?= -O3 -g
+CXXFLAGS += -Wall -Wextra -std=c++17
 SHELL  = /bin/bash
 
 # Shell colours
@@ -19,10 +20,11 @@ WHITE =\u001b[37;1m
 RESET =\u001b[0m
 
 # List all the header files
-HDRS = $(shell find $(SRC) -print | grep .h)
+HDRS := $(wildcard $(SRC)/*.h)
 
 # List all the object files
-OBJS = $(shell find $(SRC) -print | grep .cpp | sed -r "s/($(SRC))\/(.*)\.(cpp)/$(BIN)\/obj\/\2\.o/")
+SRCS := $(wildcard $(SRC)/*.cpp)
+OBJS := $(patsubst $(SRC)/%.cpp,$(BIN)/obj/%.o,$(SRCS))
 
 # Rules
 .PHONY: clean
@@ -30,13 +32,13 @@ OBJS = $(shell find $(SRC) -print | grep .cpp | sed -r "s/($(SRC))\/(.*)\.(cpp)/
 
 # Rule to create the executable
 $(BIN)/$(EXE): $(OBJS)
-	$(CC) -o $@ $^ $(CFLAGS) && \
-	echo -e "Make: successfully built executable ${CYAN}$@${RESET}"
+	$(CXX) -o $@ $^ $(CXXFLAGS) && \
+	printf "Make: successfully built executable ${CYAN}%s${RESET}\n" "$@"
 
 # Rule to create the object files
 $(BIN)/obj/%.o: $(SRC)/%.cpp $(HDRS) | $(BIN)
-	echo -e "Make: compiling source file ${PINK}$<${RESET}" && \
-	$(CC) -c -o $@ $< $(CFLAGS)
+	printf "Make: compiling source file ${PINK}%s${RESET}\n" "$<" && \
+	$(CXX) -c -o $@ $< $(CXXFLAGS)
 
 # Rule to create the output folder
 $(BIN):
@@ -44,5 +46,5 @@ $(BIN):
 
 # Delete the objects and executable
 clean:
-	echo -e "Make: cleaning up" && \
+	printf "Make: cleaning up\n" && \
 	rm -rf $(BIN)

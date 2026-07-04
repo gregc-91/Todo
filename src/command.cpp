@@ -1,5 +1,7 @@
 
 #include "command.h"
+
+#include <sstream>
 #include "todo.h"
 #include "colour.h"
 
@@ -314,7 +316,7 @@ static void executeSetCommand(Todo& todo, const Command command) {
 	todo.printLine(command.set.index);
 }
 
-static void executeUndoCommand(Todo& todo, const Command command) {
+static void executeUndoCommand(Todo& todo, const Command) {
 	if (DEBUG_PRINT) printf("Executing undo command.\n");
 	
 	Command previous;

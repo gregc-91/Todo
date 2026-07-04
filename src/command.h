@@ -127,9 +127,9 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
-			new (&list.statuses)std::set(other.list.statuses);
+			new (&list.statuses) std::set<char>(other.list.statuses);
 			new (&list.project) std::string(other.list.project);
-			new (&list.tags)    std::set(other.list.tags);
+			new (&list.tags)    std::set<std::string>(other.list.tags);
 			break;
 		case CommandType::Add:
 			add.index = other.add.index;
@@ -161,9 +161,9 @@ struct Command {
 		switch (ct) {
 		case CommandType::List: 
 			list.mode = other.list.mode;
-			new (&list.statuses) std::set(other.list.statuses);
+			new (&list.statuses) std::set<char>(other.list.statuses);
 			new (&list.project) std::string(other.list.project);
-			new (&list.tags)    std::set(other.list.tags);
+			new (&list.tags)    std::set<std::string>(other.list.tags);
 			break;
 		case CommandType::Add:
 			add.index = other.add.index;

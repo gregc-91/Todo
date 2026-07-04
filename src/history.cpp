@@ -1,4 +1,4 @@
-#include "History.h"
+#include "history.h"
 
 #include <istream>
 #include <fstream>

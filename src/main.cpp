@@ -2,9 +2,8 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
-#include <strings.h>
-#include <windows.h>
 #include <ctime>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -12,55 +11,7 @@
 #include "command.h"
 #include "todo.h"
 #include "parser.h"
-
-#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
-#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
-#endif
-
-static HANDLE stdoutHandle;
-static DWORD outModeInit;
-
-void setupConsole(void)
-{
-    DWORD outMode = 0;
-    stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    if (stdoutHandle == INVALID_HANDLE_VALUE) {
-        exit(GetLastError());
-    }
-
-    if (!GetConsoleMode(stdoutHandle, &outMode)) {
-        exit(GetLastError());
-    }
-
-    outModeInit = outMode;
-
-    // Enable ANSI escape codes
-    outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-
-    if (!SetConsoleMode(stdoutHandle, outMode)) {
-        exit(GetLastError());
-    }
-}
-
-void restoreConsole(void)
-{
-    // Reset colors
-    printf("\x1b[0m");
-
-    // Reset console mode
-    if (!SetConsoleMode(stdoutHandle, outModeInit)) {
-        exit(GetLastError());
-    }
-}
-
-class Task
-{
-    char status;
-    std::string project;
-    std::string tag;
-    std::string text;
-};
+#include "console.h"
 
 void usage()
 {
@@ -97,9 +48,11 @@ void usage()
 
 int main(int argc, char** argv)
 {
-    setupConsole();
+    Console::setup();
+    std::atexit(Console::restore);
 
-    if (argc > 1 && strncmp(argv[1], "-h", 2) == 0) {
+    if (argc > 1 &&
+        (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
         usage();
         exit(0);
     }
