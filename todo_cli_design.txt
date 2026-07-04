@@ -51,7 +51,8 @@ Project Architecture
 The project should use a command based architecture.
 Command line arguments should be parsed into a command object.
 Command objects are executed to perform the desired action.
-A history should be kept to facilitate undo of the last N actions.
+A history stack keeps the last 100 modifying commands so they can be undone
+in reverse order.
 
 /src/
   |

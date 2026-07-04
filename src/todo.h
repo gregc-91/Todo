@@ -18,9 +18,7 @@ public:
 	void print();
 	void printLine(unsigned index);
 	void commit();
-	void backup();
-	void restore();
-	
+
 	std::string filename;
 	std::vector<std::string> lines;
 };

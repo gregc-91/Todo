@@ -6,6 +6,7 @@
 #include <ostream>
 #include <set>
 #include <string>
+#include <vector>
 
 #define DEBUG_PRINT 0
 
@@ -115,6 +116,10 @@ struct SetCommand {
 	char status = 'x';
 };
 
+struct RestoreCommand {
+	std::vector<std::string> lines;
+};
+
 struct Command {
 	Command() = default;
 	explicit Command(CommandType commandType) : ct(commandType) {}
@@ -131,6 +136,7 @@ struct Command {
 	RemoveCommand remove;
 	DoCommand doo;
 	SetCommand set;
+	RestoreCommand restore;
 
 private:
 	CommandType ct = CommandType::None;

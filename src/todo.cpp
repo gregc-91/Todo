@@ -1,10 +1,12 @@
 #include "todo.h"
+#include "atomic_file.h"
 #include "colour.h"
 #include "command.h"
 
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 #include <vector>
 #include <filesystem>
 
@@ -88,55 +90,9 @@ void Todo::printLine(unsigned index) {
 }
 
 void Todo::commit() {
-	std::ofstream file(filename);
-	if (!file) {
-		throw std::runtime_error("unable to open todo file for writing");
+	std::ostringstream contents;
+	for (const std::string &line : lines) {
+		contents << line << '\n';
 	}
-	for (auto &s : lines) {
-		file << s << std::endl;
-	}
-	if (!file) {
-		throw std::runtime_error("failed while writing todo file");
-	}
-	file.close();
-	if (!file) {
-		throw std::runtime_error("failed to finish writing todo file");
-	}
-}
-
-void Todo::backup() {
-	std::ofstream file(filename + ".bak");
-	if (!file) {
-		throw std::runtime_error("unable to create todo backup");
-	}
-	for (auto &s : lines) {
-		file << s << std::endl;
-	}
-	if (!file) {
-		throw std::runtime_error("failed while writing todo backup");
-	}
-	file.close();
-	if (!file) {
-		throw std::runtime_error("failed to finish writing todo backup");
-	}
-}
-
-void Todo::restore() {
-
-	std::string backupFilename = filename + ".bak";
-	if (!std::filesystem::exists(backupFilename)) {
-		throw std::runtime_error("No backup file found");
-	}
-
-	lines.clear();
-	std::ifstream file(backupFilename);
-	if (!file) {
-		throw std::runtime_error("unable to open todo backup");
-	}
-	for(std::string line; getline(file, line); ) {
-		lines.push_back(line);
-	}
-	if (!file.eof()) {
-		throw std::runtime_error("failed while reading todo backup");
-	}
+	atomicWriteFile(filename, contents.str());
 }

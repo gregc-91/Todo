@@ -1,19 +1,32 @@
-#ifndef __HISTORY_H__
-#define __HISTORY_H__
+#ifndef TODO_HISTORY_H
+#define TODO_HISTORY_H
 
-#include "todo.h"
 #include "command.h"
 
+#include <cstddef>
+#include <string>
+#include <vector>
+
+struct HistoryEntry {
+	Command command;
+	Command inverse;
+};
+
 class History {
-	
-	Command     last_command;
-	Command     inverse_command;   
+public:
+	explicit History(const std::string &filename);
+
+	bool empty() const;
+	const HistoryEntry &last() const;
+	void push(const Command &command, const Command &inverse);
+	void pop();
+	void commit() const;
+
+private:
+	static constexpr std::size_t maximumEntries = 100;
+
 	std::string filename;
-	
-	History(std::string filename);
-	
-	void update(const Todo &todo, const Command &command);
-	void commit();
+	std::vector<HistoryEntry> entries;
 };
 
 #endif

@@ -2,6 +2,7 @@
 #include "command.h"
 
 #include "colour.h"
+#include "history.h"
 #include "todo.h"
 #include "utility.h"
 
@@ -330,7 +331,7 @@ static void executeAddCommand(Todo& todo, Command &command) {
 	todo.printLine(command.add.index);
 }
 
-static void executeRemoveCommand(Todo& todo, const Command command) {
+static void executeRemoveCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing remove command.\n");
 	
 	todo.printLine(command.remove.index);
@@ -338,7 +339,7 @@ static void executeRemoveCommand(Todo& todo, const Command command) {
 	todo.commit();
 }
 
-static void executeDooCommand(Todo& todo, const Command command) {
+static void executeDooCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing do command.\n");
 	
 	todo.setStatus(command.doo.index, command.doo.status);
@@ -346,7 +347,7 @@ static void executeDooCommand(Todo& todo, const Command command) {
 	todo.printLine(command.doo.index);
 }
 
-static void executeSetCommand(Todo& todo, const Command command) {
+static void executeSetCommand(Todo& todo, const Command &command) {
 	if (DEBUG_PRINT) printf("Executing set command.\n");
 	
 	todo.setStatus(command.set.index, command.set.status);
@@ -354,29 +355,29 @@ static void executeSetCommand(Todo& todo, const Command command) {
 	todo.printLine(command.set.index);
 }
 
-static void executeUndoCommand(Todo& todo, const Command) {
+static void executeUndoCommand(Todo& todo, const Command &) {
 	if (DEBUG_PRINT) printf("Executing undo command.\n");
 
-	Command previous;
-	Command inverse;
+	History history("history.txt");
+	HistoryEntry entry = history.last();
+	const std::vector<std::string> linesBeforeUndo = todo.lines;
 
-	std::ifstream historyStream("history.txt");
-	if (!historyStream) {
-		throw std::runtime_error("no command history found");
+	entry.command.print();
+	entry.inverse.print();
+	executeCommand(todo, entry.inverse);
+
+	history.pop();
+	try {
+		history.commit();
+	} catch (...) {
+		todo.lines = linesBeforeUndo;
+		todo.commit();
+		throw;
 	}
-	previous.deserialise(historyStream);
-	inverse.deserialise(historyStream);
-
-	previous.print();
-	inverse.print();
-
-	executeCommand(todo, inverse);
 }
 
-static void executeTidyCommand(Todo &todo, const Command /*command*/) {
+static void executeTidyCommand(Todo &todo, const Command &) {
 	if (DEBUG_PRINT) printf("Executing tidy command.\n");
-
-	todo.backup();
 
 	for(size_t i = 1; i < todo.lines.size(); i++) {
 		// Remove duplicate blank lines
@@ -403,8 +404,8 @@ static void executeTidyCommand(Todo &todo, const Command /*command*/) {
 
 	todo.commit();
 }
-static void executeRestoreCommand(Todo &todo, const Command /*command*/) {
-	todo.restore();
+static void executeRestoreCommand(Todo &todo, const Command &command) {
+	todo.lines = command.restore.lines;
 	todo.commit();
 }
 
@@ -447,119 +448,19 @@ void executeCommand(Todo &todo, Command &command) {
 	}
 }
 
-// Todo: check these
-std::string lineToProject(const Todo &todo, uint32_t index)
-{
-	if (index >= todo.lines.size()) {
-		throw std::runtime_error("Index out of bounds");
-	}
-
-	for (int i = index; i >= 0; i--) {
-		if (isAnyProject(todo.lines[i])) {
-			return projectName(todo.lines[i]);
-		}
-	}
-	return std::string("");
-}
-
-std::string lineToTag(const Todo &todo, uint32_t index)
-{
-	if (index >= todo.lines.size()) {
-		throw std::runtime_error("Index out of bounds");
-	}
-
-	const std::string line = trimLeadingWhitespace(todo.lines[index]);
-	size_t pos = line.find_last_of(' ');
-	if (pos != std::string::npos && pos + 2 < line.length() &&
-		line[pos + 1] == TAG_CHAR) {
-		return line.substr(pos + 2);
-	}
-	return "";
-}
-
-std::string lineToTask(const Todo &todo, uint32_t index)
-{
-	if (index >= todo.lines.size()) {
-		throw std::runtime_error("Index out of bounds");
-	}
-
-	const std::string source = trimLeadingWhitespace(todo.lines[index]);
-	if (source.size() < 4 || source[0] != '[' || source[2] != ']' ||
-		source[3] != ' ') {
-		throw std::runtime_error("line is not a task");
-	}
-
-	std::string line = source.substr(4);
-	size_t pos = line.find_last_of(' ');
-	if (pos != std::string::npos && pos + 1 < line.length() &&
-		line[pos + 1] == TAG_CHAR) {
-		return line.substr(0, pos);
-	}
-	return line;
-}
-
-char lineToStatus(const Todo &todo, uint32_t index)
-{
-	if (index >= todo.lines.size()) {
-		throw std::runtime_error("Index out of bounds");
-	}
-
-	const std::string line = trimLeadingWhitespace(todo.lines[index]);
-	if (line.size() < 4 || line[0] != '[' || line[2] != ']' ||
-		line[3] != ' ') {
-		throw std::runtime_error("line is not a task");
-	}
-	if (DEBUG_PRINT) printf("Status for line %u: %c\n", index, line[1]);
-	return line[1];
-}
-
 Command inverseCommand(const Todo &todo, const Command &command)
 {
-	// List : None
-	// Add  : Remove
-	// Doo  : Undo
-	// Set  : Set
-	// Tidy : Restore
-	
 	switch (command.type()) {
 	case CommandType::Add:
-		{
-			Command inverse(CommandType::Remove);
-			inverse.remove.project = command.add.project;
-			inverse.remove.tag = command.add.tag;
-			inverse.remove.index = findLastOfProject(todo, command.add.project);
-			return inverse;
-		} break;
 	case CommandType::Remove:
-		{
-			Command inverse(CommandType::Add);
-			inverse.add.project = lineToProject(todo, command.remove.index);
-			inverse.add.tag = lineToTag(todo, command.remove.index);
-			inverse.add.task = lineToTask(todo, command.remove.index);
-			inverse.add.index = command.remove.index;
-			return inverse;
-		} break;
 	case CommandType::Doo:
-		{
-			Command inverse(CommandType::Doo);
-			inverse.doo.project = command.doo.project;
-			inverse.doo.tag = command.doo.tag;
-			inverse.doo.index = command.doo.index;
-			inverse.doo.status = lineToStatus(todo, command.doo.index);
-			return inverse;
-		} break;
 	case CommandType::Set:
-		{
-			Command inverse(CommandType::Set);
-			inverse.set.index = command.set.index;
-			inverse.set.status = lineToStatus(todo, command.set.index);
-			return inverse;
-		} break;
 	case CommandType::Tidy:
 		{
 			Command inverse(CommandType::Restore);
+			inverse.restore.lines = todo.lines;
 			return inverse;
-		} break;
+		}
 	default: break;
 	}
 	
@@ -700,7 +601,15 @@ void Command::serialise(std::ostream &os) const
 	{
 		break;
 	}
-	default: break;	
+	case CommandType::Restore:
+	{
+		os << restore.lines.size() << ',';
+		for (const std::string &line : restore.lines) {
+			serialise_string(os, line);
+		}
+		break;
+	}
+	default: break;
 	}
 }
 
@@ -763,6 +672,15 @@ void Command::deserialise(std::istream &is)
 	}
 	case CommandType::Restore:
 	{
+		restore = RestoreCommand();
+		std::size_t lineCount = 0;
+		deserialise_value(is, lineCount);
+		restore.lines.reserve(lineCount);
+		for (std::size_t i = 0; i < lineCount; ++i) {
+			std::string line;
+			deserialise_string(is, line);
+			restore.lines.push_back(line);
+		}
 		break;
 	}
 	default:	

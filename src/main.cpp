@@ -1,12 +1,12 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
-#include <fstream>
 #include <iostream>
 #include <stdexcept>
 
 #include "command.h"
 #include "console.h"
+#include "history.h"
 #include "parser.h"
 #include "todo.h"
 
@@ -67,19 +67,29 @@ int main(int argc, char **argv)
 
 		command.print();
 		inverse.print();
-		executeCommand(todo, command);
 
 		if (command.shouldUpdateHistory()) {
-			std::ofstream historyStream("history.txt");
-			if (!historyStream) {
+			History history("history.txt");
+			executeCommand(todo, command);
+			history.push(command, inverse);
+			try {
+				history.commit();
+			} catch (const std::exception &historyError) {
+				try {
+					todo.lines = inverse.restore.lines;
+					todo.commit();
+				} catch (const std::exception &rollbackError) {
+					throw std::runtime_error(
+						std::string("history update failed: ") +
+						historyError.what() + "; rollback failed: " +
+						rollbackError.what());
+				}
 				throw std::runtime_error(
-					"unable to open command history for writing");
+					std::string("history update failed; change was rolled back: ") +
+					historyError.what());
 			}
-			command.serialise(historyStream);
-			inverse.serialise(historyStream);
-			if (!historyStream) {
-				throw std::runtime_error("failed while writing command history");
-			}
+		} else {
+			executeCommand(todo, command);
 		}
 	} catch (const std::exception &error) {
 		std::cerr << "Error: " << error.what() << '\n';
