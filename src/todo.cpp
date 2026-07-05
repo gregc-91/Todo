@@ -1,21 +1,11 @@
 #include "todo.h"
 #include "atomic_file.h"
-#include "colour.h"
-#include "command.h"
+#include "todo_format.h"
 
-#include <iostream>
 #include <fstream>
-#include <iomanip>
 #include <sstream>
 #include <vector>
 #include <filesystem>
-
-const std::string whitespace = " \t\f\v\n\r";
-
-std::string inline trimLeadingWhitespace(const std::string &str) {
-	size_t start = str.find_first_not_of(whitespace);
-	return start == std::string::npos ? "" : str.substr(start);
-}
 
 Todo::Todo(const std::string &filename) :
 	filename(filename)
@@ -65,35 +55,10 @@ void Todo::setStatus(unsigned index, char status) {
 	lines[index][pos+1] = status;
 }
 
-void Todo::print() {
-	for (auto &s : lines) {
-		std::cout << s << std::endl;
-	}
-}
-
 void Todo::printLine(unsigned index) {
 	if (index >= lines.size())
 		throw std::runtime_error("Index out of bounds");
-
-	const std::string &line = lines[index];
-	const std::string trimmedLine = trimLeadingWhitespace(line);
-	bool isProject = !trimmedLine.empty() &&
-		trimmedLine.front() == PROJECT_FILE_CHAR;
-	bool isTask = !trimmedLine.empty() && trimmedLine.front() == '[';
-
-	std::cout << Colour::BrightBlack << std::setw(4) << index << ":  " << Colour::Reset;
-	
-	if (isProject) {
-		std::cout << Colour::BrightWhite;
-	} else if (isTask) {
-		TaskType taskType = parseTaskType(trimmedLine);
-		
-		std::cout << TaskColours[taskType];
-	}
-	
-	std::cout << line << std::endl;
-	
-	std::cout << Colour::Reset;
+	printTodoLine(lines[index], index);
 }
 
 void Todo::commit() {

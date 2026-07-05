@@ -16,7 +16,6 @@ public:
 	void removeLine(unsigned index);
 	void removeLines(unsigned first, unsigned last);
 	void setStatus(unsigned index, char status);
-	void print();
 	void printLine(unsigned index);
 	void commit();
 

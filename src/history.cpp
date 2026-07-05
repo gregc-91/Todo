@@ -8,7 +8,43 @@
 #include <stdexcept>
 
 namespace {
-const char *historyFormat = "TODO_HISTORY_V3";
+const char *historyFormat = "TODO_HISTORY_V4";
+
+void writeString(std::ostream &output, const std::string &value)
+{
+	output << value.size() << ',';
+	output.write(value.data(), static_cast<std::streamsize>(value.size()));
+	output << ',';
+}
+
+std::string readString(std::istream &input)
+{
+	std::size_t length = 0;
+	char delimiter = '\0';
+	if (!(input >> length >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed string in command history");
+	}
+
+	std::string value(length, '\0');
+	if (length > 0 &&
+		!input.read(&value[0], static_cast<std::streamsize>(length))) {
+		throw std::runtime_error("truncated string in command history");
+	}
+	if (!input.get(delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed string in command history");
+	}
+	return value;
+}
+
+std::size_t readSize(std::istream &input)
+{
+	std::size_t value = 0;
+	char delimiter = '\0';
+	if (!(input >> value >> delimiter) || delimiter != ',') {
+		throw std::runtime_error("malformed value in command history");
+	}
+	return value;
+}
 }
 
 History::History(const std::string &filename) :
@@ -24,13 +60,7 @@ History::History(const std::string &filename) :
 	}
 
 	std::string format;
-	if (!std::getline(file, format)) {
-		return;
-	}
-
-	// Earlier releases stored one unframed command pair. Those inverse
-	// commands cannot reliably restore line positions, so start a safe stack.
-	if (format != historyFormat) {
+	if (!std::getline(file, format) || format != historyFormat) {
 		return;
 	}
 
@@ -41,10 +71,13 @@ History::History(const std::string &filename) :
 
 	entries.reserve(entryCount);
 	for (std::size_t i = 0; i < entryCount; ++i) {
-		HistoryEntry entry;
-		entry.command.deserialise(file);
-		entry.inverse.deserialise(file);
-		entries.push_back(entry);
+		const std::size_t lineCount = readSize(file);
+		std::vector<std::string> lines;
+		lines.reserve(lineCount);
+		for (std::size_t j = 0; j < lineCount; ++j) {
+			lines.push_back(readString(file));
+		}
+		entries.push_back(lines);
 	}
 
 	file >> std::ws;
@@ -53,12 +86,7 @@ History::History(const std::string &filename) :
 	}
 }
 
-bool History::empty() const
-{
-	return entries.empty();
-}
-
-const HistoryEntry &History::last() const
+const std::vector<std::string> &History::last() const
 {
 	if (entries.empty()) {
 		throw std::runtime_error("no command history found");
@@ -66,12 +94,12 @@ const HistoryEntry &History::last() const
 	return entries.back();
 }
 
-void History::push(const Command &command, const Command &inverse)
+void History::push(const std::vector<std::string> &lines)
 {
 	if (entries.size() == maximumEntries) {
 		entries.erase(entries.begin());
 	}
-	entries.push_back({command, inverse});
+	entries.push_back(lines);
 }
 
 void History::pop()
@@ -86,9 +114,11 @@ void History::commit() const
 {
 	std::ostringstream contents;
 	contents << historyFormat << '\n' << entries.size() << '\n';
-	for (const HistoryEntry &entry : entries) {
-		entry.command.serialise(contents);
-		entry.inverse.serialise(contents);
+	for (const std::vector<std::string> &lines : entries) {
+		contents << lines.size() << ',';
+		for (const std::string &line : lines) {
+			writeString(contents, line);
+		}
 	}
 	if (!contents) {
 		throw std::runtime_error("failed to serialize command history");

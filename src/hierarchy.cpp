@@ -1,21 +1,10 @@
 #include "hierarchy.h"
 
-#include "todo.h"
+#include "todo_format.h"
 
 #include <stdexcept>
 
 namespace {
-bool isBlankLine(const std::string &line)
-{
-	return line.find_first_not_of(" \t\r\n\f\v") == std::string::npos;
-}
-
-bool isProjectLine(const std::string &line)
-{
-	const std::size_t first = line.find_first_not_of(" \t");
-	return first != std::string::npos && line[first] == PROJECT_FILE_CHAR;
-}
-
 std::size_t leadingSpaces(const std::string &line)
 {
 	std::size_t spaces = 0;

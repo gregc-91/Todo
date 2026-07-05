@@ -3,8 +3,11 @@
 #include <exception>
 #include <iostream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "command.h"
+#include "command_execution.h"
 #include "console.h"
 #include "history.h"
 #include "parser.h"
@@ -67,20 +70,17 @@ int main(int argc, char **argv)
 	try {
 		Todo todo("todo.txt");
 		Command command = parseCommand(argc, argv);
-		Command inverse = inverseCommand(todo, command);
 
-		command.print();
-		inverse.print();
-
-		if (command.shouldUpdateHistory()) {
+		if (command.changesTodo()) {
+			const std::vector<std::string> linesBeforeChange = todo.lines;
 			History history("history.txt");
 			executeCommand(todo, command);
-			history.push(command, inverse);
+			history.push(linesBeforeChange);
 			try {
 				history.commit();
 			} catch (const std::exception &historyError) {
 				try {
-					todo.lines = inverse.restore.lines;
+					todo.lines = linesBeforeChange;
 					todo.commit();
 				} catch (const std::exception &rollbackError) {
 					throw std::runtime_error(
